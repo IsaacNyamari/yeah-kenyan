@@ -140,6 +140,7 @@ class ImportPostDates extends Command
     }
 
     /**
+     * @param  array<string, mixed>  $row
      * @param  array<int, string>  $keys
      */
     private function firstKey(array $row, array $keys): ?string

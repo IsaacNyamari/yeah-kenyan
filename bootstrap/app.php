@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Middleware\EnsureUserIsAdmin;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
@@ -13,7 +14,7 @@ $app = Application::configure(basePath: dirname(__DIR__))
     )
     ->withMiddleware(function (Middleware $middleware): void {
         $middleware->alias([
-            'admin' => App\Http\Middleware\EnsureUserIsAdmin::class,
+            'admin' => EnsureUserIsAdmin::class,
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {
@@ -24,15 +25,11 @@ $app = Application::configure(basePath: dirname(__DIR__))
 
 /*
  * On shared cPanel hosting the application lives outside the web root and the
- * contents of public/ are moved into public_html. Pointing the public path at
- * that directory keeps public_path(), asset() and the "public" upload disk all
- * resolving to the same place, with no symlink involved.
+ * contents of public/ are moved into public_html. The entry point there calls
+ * $app->usePublicPath(__DIR__) directly — see stubs/cpanel/index.php.
  *
- * Set APP_PUBLIC_PATH=/home/<account>/public_html in .env on the server.
- * Left unset, everything behaves exactly as it does locally.
+ * It is done there rather than from .env because config:cache stops .env being
+ * read during bootstrap, which would silently leave the path unset.
  */
-if ($publicPath = env('APP_PUBLIC_PATH')) {
-    $app->usePublicPath($publicPath);
-}
 
 return $app;

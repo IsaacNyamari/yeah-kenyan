@@ -148,7 +148,7 @@ new #[Layout('layouts.app')] #[Title('Messages')] class extends Component {
                                     {{ $message->name }}
                                 </span>
                                 <span class="ms-auto shrink-0 text-xs text-zinc-500">
-                                    {{ $message->created_at->siteTime()->diffForHumans(short: true) }}
+                                    {{ site_time($message->created_at)?->diffForHumans(short: true) }}
                                 </span>
                             </div>
                             <p class="mt-1 truncate text-sm text-zinc-600 dark:text-zinc-400">{{ $message->subject }}</p>
@@ -174,7 +174,7 @@ new #[Layout('layouts.app')] #[Title('Messages')] class extends Component {
                                 <a href="mailto:{{ $this->selected->email }}" class="underline">{{ $this->selected->email }}</a>
                             </flux:text>
                             <flux:text size="sm" class="mt-0.5">
-                                {{ $this->selected->created_at->siteTime()->format('M d, Y \a\t H:i') }}
+                                {{ site_time($this->selected->created_at)?->format('M d, Y \a\t H:i') }}
                             </flux:text>
                         </div>
 

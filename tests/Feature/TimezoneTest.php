@@ -28,8 +28,8 @@ it('converts to the configured zone for display', function () {
 
     $post = Post::factory()->create(['published_at' => '2026-08-26 18:09:56']);
 
-    expect($post->published_at->siteTime()->format('H:i'))->toBe('21:09')
-        ->and($post->published_at->siteTime()->timezoneName)->toBe('Africa/Nairobi');
+    expect(site_time($post->published_at)?->format('H:i'))->toBe('21:09')
+        ->and(site_time($post->published_at)?->timezoneName)->toBe('Africa/Nairobi');
 });
 
 it('follows the setting when the zone changes', function (string $zone, string $expected) {
@@ -37,7 +37,7 @@ it('follows the setting when the zone changes', function (string $zone, string $
 
     $post = Post::factory()->create(['published_at' => '2026-08-26 12:00:00']);
 
-    expect($post->published_at->siteTime()->format('H:i'))->toBe($expected);
+    expect(site_time($post->published_at)?->format('H:i'))->toBe($expected);
 })->with([
     ['UTC', '12:00'],
     ['Africa/Nairobi', '15:00'],
@@ -99,7 +99,7 @@ it('shows converted times on the public news pages', function () {
 
     $this->get(route('news.show', $post->slug))
         ->assertOk()
-        ->assertSee(now()->subDays(2)->setTime(23, 30)->siteTime()->format('M d, Y'));
+        ->assertSee(site_time(now()->subDays(2)->setTime(23, 30))?->format('M d, Y'));
 });
 
 it('shows converted times in the admin inbox', function () {
@@ -119,5 +119,5 @@ it('falls back to utc when no zone is configured', function () {
 
     $post = Post::factory()->create(['published_at' => '2026-08-26 12:00:00']);
 
-    expect($post->published_at->siteTime()->format('H:i'))->toBe('12:00');
+    expect(site_time($post->published_at)?->format('H:i'))->toBe('12:00');
 });

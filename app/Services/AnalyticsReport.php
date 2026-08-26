@@ -109,7 +109,7 @@ class AnalyticsReport
      * Run a lookup, swallowing configuration and transport failures so one bad
      * call cannot take the whole page down.
      *
-     * @param  callable(): Collection<int, array<string, mixed>>  $query
+     * @param  callable(): Collection<int, mixed>  $query
      * @return Collection<int, array<string, mixed>>
      */
     private function attempt(callable $query): Collection
@@ -119,7 +119,10 @@ class AnalyticsReport
         }
 
         try {
-            return $query();
+            /** @var Collection<int, array<string, mixed>> $rows */
+            $rows = $query();
+
+            return $rows;
         } catch (Throwable $e) {
             $this->error ??= $e->getMessage();
 

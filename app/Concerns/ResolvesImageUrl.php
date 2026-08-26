@@ -2,7 +2,6 @@
 
 namespace App\Concerns;
 
-use Illuminate\Database\Eloquent\Casts\Attribute;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 
@@ -24,19 +23,14 @@ trait ResolvesImageUrl
      */
     private const LEGACY_PUBLIC_DIRECTORIES = ['uploads/', 'images/'];
 
-    /**
-     * @return Attribute<string|null, never>
-     */
-    protected function imageUrl(): Attribute
+    public function getImageUrlAttribute(): ?string
     {
-        return Attribute::get(function (): ?string {
-            if (blank($this->image)) {
-                return null;
-            }
+        if (blank($this->image)) {
+            return null;
+        }
 
-            return Str::startsWith($this->image, self::LEGACY_PUBLIC_DIRECTORIES)
-                ? asset($this->image)
-                : Storage::disk('public')->url($this->image);
-        });
+        return Str::startsWith($this->image, self::LEGACY_PUBLIC_DIRECTORIES)
+            ? asset($this->image)
+            : Storage::disk('public')->url($this->image);
     }
 }

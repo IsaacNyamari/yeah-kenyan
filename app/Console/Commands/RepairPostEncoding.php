@@ -82,9 +82,9 @@ class RepairPostEncoding extends Command
         while (preg_match(self::MOJIBAKE, $text) && $passes < 3) {
             $candidate = @mb_convert_encoding($text, 'Windows-1252', 'UTF-8');
 
-            // A failed conversion, or one that produces invalid UTF-8, means
-            // the text was not mojibake after all — leave it alone.
-            if ($candidate === false || $candidate === '' || ! mb_check_encoding($candidate, 'UTF-8')) {
+            // A conversion producing invalid UTF-8 means the text was not
+            // mojibake after all — leave it alone.
+            if ($candidate === '' || ! mb_check_encoding($candidate, 'UTF-8')) {
                 break;
             }
 

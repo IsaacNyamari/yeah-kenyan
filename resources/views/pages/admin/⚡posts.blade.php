@@ -244,7 +244,7 @@ new #[Layout('layouts.app')] #[Title('Manage News')] class extends Component {
                                 <p class="mt-0.5 text-xs text-zinc-500">
                                     <span class="capitalize">{{ $post->category->name }}</span>
                                     &middot;
-                                    {{ $post->published_at?->siteTime()->format('M d, Y') ?? 'Draft' }}
+                                    {{ site_time($post->published_at)?->format('M d, Y') ?? 'Draft' }}
                                     @if ($post->is_featured) &middot; Featured @endif
                                 </p>
                             </div>

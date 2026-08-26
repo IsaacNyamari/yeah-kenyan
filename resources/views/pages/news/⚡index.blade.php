@@ -197,7 +197,7 @@ new #[Layout('layouts.site')] #[Title('News')] class extends Component {
                                             <h3 class="line-clamp-2 text-sm font-semibold transition group-hover:text-brand-600">
                                                 {{ $post->title }}
                                             </h3>
-                                            <p class="mt-1 text-xs text-zinc-500">{{ $post->published_at?->siteTime()->diffForHumans() }}</p>
+                                            <p class="mt-1 text-xs text-zinc-500">{{ site_time($post->published_at)?->diffForHumans() }}</p>
                                         </div>
                                     </a>
                                 </li>

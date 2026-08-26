@@ -9,7 +9,7 @@
 
 **Subject:** {{ $enquiry->subject }}
 **Email:** {{ $enquiry->email }}
-**Received:** {{ $enquiry->created_at->siteTime()->format('M d, Y \a\t H:i') }}
+**Received:** {{ site_time($enquiry->created_at)?->format('M d, Y \a\t H:i') }}
 
 <x-mail::button :url="route('admin.messages')">
 Open in the dashboard

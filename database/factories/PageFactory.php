@@ -16,7 +16,8 @@ class PageFactory extends Factory
      */
     public function definition(): array
     {
-        $title = fake()->unique()->words(3, true);
+        /** @var string $title */
+        $title = fake()->unique()->words(3, asText: true);
 
         return [
             'slug' => Str::slug($title),

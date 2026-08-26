@@ -7,6 +7,7 @@ use App\Models\Post;
 use App\Services\ArticleHtml;
 use DOMDocument;
 use DOMElement;
+use DOMNode;
 use DOMXPath;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Http;
@@ -172,7 +173,7 @@ class ImportLegacyPosts extends Command
      */
     private function extractBody(DOMDocument $document, DOMXPath $xpath): string
     {
-        $container = $xpath->query("//div[contains(@class,'border-top-0')]")->item(0);
+        $container = $this->firstNode($xpath, "//div[contains(@class,'border-top-0')]");
 
         if (! $container instanceof DOMElement) {
             return '';
@@ -196,9 +197,20 @@ class ImportLegacyPosts extends Command
         return app(ArticleHtml::class)->sanitize($html);
     }
 
+    /**
+     * DOMXPath::query() returns false on a malformed expression.
+     */
+    private function firstNode(DOMXPath $xpath, string $query): ?DOMNode
+    {
+        $nodes = $xpath->query($query);
+        $node = $nodes === false ? null : $nodes->item(0);
+
+        return $node instanceof DOMNode ? $node : null;
+    }
+
     private function firstText(DOMXPath $xpath, string $query): ?string
     {
-        $node = $xpath->query($query)->item(0);
+        $node = $this->firstNode($xpath, $query);
 
         if ($node === null) {
             return null;
@@ -214,7 +226,7 @@ class ImportLegacyPosts extends Command
      */
     private function resolveImage(DOMXPath $xpath): ?string
     {
-        $node = $xpath->query("//div[contains(@class,'position-relative')]/img[contains(@class,'img-fluid')]")->item(0);
+        $node = $this->firstNode($xpath, "//div[contains(@class,'position-relative')]/img[contains(@class,'img-fluid')]");
 
         if (! $node instanceof DOMElement) {
             return null;

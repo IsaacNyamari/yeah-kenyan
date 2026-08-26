@@ -67,7 +67,7 @@ new #[Layout('layouts.site')] class extends Component {
             </span>
             <span class="flex items-center gap-1.5">
                 <flux:icon.calendar class="size-4" />
-                {{ $post->published_at?->siteTime()->format('M d, Y') }}
+                {{ site_time($post->published_at)?->format('M d, Y') }}
             </span>
         </div>
 

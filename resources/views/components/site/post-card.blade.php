@@ -43,7 +43,7 @@
 
                 <span class="flex shrink-0 items-center gap-1">
                     <flux:icon.calendar class="size-3.5" />
-                    {{ $news->publishedAt?->siteTime()->diffForHumans() }}
+                    {{ site_time($news->publishedAt)?->diffForHumans() }}
                 </span>
             </div>
         </div>

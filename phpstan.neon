@@ -11,3 +11,16 @@ parameters:
         - routes/
 
     level: 7
+
+    ignoreErrors:
+        # Both traits are used, but only by Livewire single-file components,
+        # which live in resources/views as .blade.php and cannot be parsed as
+        # PHP. ConfirmsActions is used by four of them and ManagesPageContent
+        # by two, so "used zero times" is a blind spot rather than dead code.
+        # Scoped to these two files and this one identifier so real unused
+        # traits elsewhere still surface.
+        -
+            identifier: trait.unused
+            paths:
+                - app/Concerns/ConfirmsActions.php
+                - app/Concerns/ManagesPageContent.php

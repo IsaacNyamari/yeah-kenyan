@@ -3,12 +3,28 @@
 namespace App\Models;
 
 use App\Concerns\ResolvesImageUrl;
+use Carbon\CarbonImmutable;
 use Database\Factories\PostFactory;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
+/**
+ * @property int $id
+ * @property int $category_id
+ * @property string $title
+ * @property string $slug
+ * @property string $author
+ * @property string|null $excerpt
+ * @property string $body
+ * @property string|null $image
+ * @property bool $is_featured
+ * @property bool $is_trending
+ * @property CarbonImmutable|null $published_at
+ * @property-read string|null $image_url
+ * @property-read Category $category
+ */
 class Post extends Model
 {
     /** @use HasFactory<PostFactory> */

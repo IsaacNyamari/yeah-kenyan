@@ -34,9 +34,11 @@ class Category extends Model
      */
     public function scopeWithPublishedPosts(Builder $query): void
     {
-        $query
-            ->withCount(['posts' => fn (Builder $posts) => $posts->published()])
-            ->whereHas('posts', fn (Builder $posts) => $posts->published());
+        // Left untyped so the relation's Post query is inferred; a bare
+        // Builder hint would hide the published() scope.
+        $published = fn ($posts) => $posts->published();
+
+        $query->withCount(['posts' => $published])->whereHas('posts', $published);
     }
 
     public function getRouteKeyName(): string

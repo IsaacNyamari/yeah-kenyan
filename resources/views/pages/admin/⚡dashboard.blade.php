@@ -48,12 +48,12 @@ new #[Layout('layouts.app')] #[Title('Dashboard')] class extends Component {
             ->whereNotNull('published_at')
             ->where('published_at', '>=', $start)
             ->get()
-            ->countBy(fn (Post $post): string => $post->published_at->siteTime()->format('Y-m'));
+            ->countBy(fn (Post $post): string => site_time($post->published_at)?->format('Y-m'));
 
         $messages = ContactMessage::query()
             ->where('created_at', '>=', $start)
             ->get()
-            ->countBy(fn (ContactMessage $message): string => $message->created_at->siteTime()->format('Y-m'));
+            ->countBy(fn (ContactMessage $message): string => site_time($message->created_at)?->format('Y-m'));
 
         $months = [];
 
@@ -255,7 +255,7 @@ new #[Layout('layouts.app')] #[Title('Dashboard')] class extends Component {
                             <p class="truncate text-sm font-medium">{{ $post->title }}</p>
                             <p class="text-xs text-zinc-500">
                                 <span class="capitalize">{{ $post->category->name }}</span> ·
-                                {{ $post->published_at?->siteTime()->diffForHumans(short: true) ?? 'Draft' }}
+                                {{ site_time($post->published_at)?->diffForHumans(short: true) ?? 'Draft' }}
                             </p>
                         </div>
                     </div>
@@ -283,7 +283,7 @@ new #[Layout('layouts.app')] #[Title('Dashboard')] class extends Component {
                         <div class="min-w-0 flex-1">
                             <p class="truncate text-sm font-medium">{{ $message->subject }}</p>
                             <p class="truncate text-xs text-zinc-500">
-                                {{ $message->name }} · {{ $message->created_at->siteTime()->diffForHumans(short: true) }}
+                                {{ $message->name }} · {{ site_time($message->created_at)?->diffForHumans(short: true) }}
                             </p>
                         </div>
                     </div>
