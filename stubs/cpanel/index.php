@@ -5,21 +5,48 @@
 | cPanel entry point
 |--------------------------------------------------------------------------
 |
-| Copy this into public_html and adjust APP_BASE below to wherever the
-| application folder sits (the directory holding artisan, app/, vendor/).
+| Copy this file into public_html, replacing the index.php that ships in
+| public/. Everything else from public/ is used as-is.
 |
-| Everything else in public/ — index.php aside — is copied into public_html
-| as-is: build/, images/, uploads/, storage/, favicon files, robots.txt.
+| The application itself lives OUTSIDE the web root. This file finds it
+| automatically; set APP_BASE below only if the search fails.
 |
 */
 
 use Illuminate\Foundation\Application;
 use Illuminate\Http\Request;
 
-// Path to the Laravel application, OUTSIDE the web root.
-$appBase = dirname(__DIR__).'/laravel_app';
-
 define('LARAVEL_START', microtime(true));
+
+// Set this to skip the search, e.g. '/home/myaccount/laravel_app'.
+$appBase = '';
+
+if ($appBase === '') {
+    // Look for the directory holding artisan: first the conventional name,
+    // then any sibling of the web root that looks like a Laravel install.
+    $candidates = [
+        dirname(__DIR__).'/laravel_app',
+        dirname(__DIR__).'/laravel',
+        dirname(__DIR__).'/app',
+        __DIR__.'/..',
+    ];
+
+    foreach (glob(dirname(__DIR__).'/*', GLOB_ONLYDIR) ?: [] as $sibling) {
+        $candidates[] = $sibling;
+    }
+
+    foreach ($candidates as $candidate) {
+        if (is_file($candidate.'/artisan') && is_file($candidate.'/vendor/autoload.php')) {
+            $appBase = $candidate;
+            break;
+        }
+    }
+}
+
+if ($appBase === '') {
+    http_response_code(500);
+    exit('Could not locate the application directory. Set $appBase in index.php to the folder containing artisan.');
+}
 
 if (file_exists($maintenance = $appBase.'/storage/framework/maintenance.php')) {
     require $maintenance;
@@ -31,9 +58,11 @@ require $appBase.'/vendor/autoload.php';
 $app = require_once $appBase.'/bootstrap/app.php';
 
 /*
- * public_html is the web root, so point Laravel's public path at this very
- * directory. Doing it here rather than through .env matters: config:cache
- * stops .env being read at bootstrap, which would leave APP_PUBLIC_PATH null.
+ * public_html is the web root, so Laravel's public path points here.
+ *
+ * This is set in code rather than through .env because config:cache stops
+ * .env being read during bootstrap, which would silently leave it unset —
+ * breaking asset() URLs and the upload disk, which writes into public/storage.
  */
 $app->usePublicPath(__DIR__);
 
