@@ -81,10 +81,14 @@ jobs:
           protocol: ${{ vars.FTP_PROTOCOL || 'ftps' }}
           local-dir: ./release/
           server-dir: ${{ secrets.DEPLOY_APP_PATH }}
+          # vendor/ is ~10k files and would dominate every deploy over FTP. It
+          # changes only when dependencies do, so it is uploaded once by hand as
+          # an archive and refreshed the same way after a composer update.
           exclude: |
             **/public_html_files/**
             **/.git*
             **/node_modules/**
+            vendor/**
 
       - name: Upload web root
         uses: SamKirkland/FTP-Deploy-Action@v4.3.5
