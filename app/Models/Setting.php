@@ -49,7 +49,12 @@ class Setting extends Model
     }
 
     /**
-     * Every setting, decrypted, keyed by name.
+     * Every non-secret setting, keyed by name.
+     *
+     * Secrets are deliberately excluded. The cache store is the database, so
+     * caching decrypted credentials here would write them back to disk in
+     * plaintext and undo the encryption applied on save. They are read
+     * straight from the row instead — see {@see secret()}.
      *
      * @return array<string, string|null>
      */
@@ -62,7 +67,9 @@ class Setting extends Model
                 return [];
             }
 
-            return self::query()->get(['key', 'value', 'is_encrypted'])
+            return self::query()
+                ->whereNotIn('key', self::SECRETS)
+                ->get(['key', 'value', 'is_encrypted'])
                 ->mapWithKeys(fn (self $setting): array => [$setting->key => $setting->decoded()])
                 ->all();
         });
@@ -70,9 +77,23 @@ class Setting extends Model
 
     public static function get(string $key, ?string $default = null): ?string
     {
-        $value = self::allValues()[$key] ?? null;
+        $value = in_array($key, self::SECRETS, true)
+            ? self::secret($key)
+            : (self::allValues()[$key] ?? null);
 
         return ($value === null || $value === '') ? $default : $value;
+    }
+
+    /**
+     * Read and decrypt one secret, never touching the cache.
+     */
+    private static function secret(string $key): ?string
+    {
+        if (! self::tableExists()) {
+            return null;
+        }
+
+        return self::query()->find($key)?->decoded();
     }
 
     public static function boolean(string $key, bool $default = false): bool

@@ -86,7 +86,9 @@ class SettingsServiceProvider extends ServiceProvider
             'mail.mailers.smtp.host' => $settings['mail_host'],
             'mail.mailers.smtp.port' => (int) ($settings['mail_port'] ?? 587),
             'mail.mailers.smtp.username' => $settings['mail_username'] ?? null,
-            'mail.mailers.smtp.password' => $settings['mail_password'] ?? null,
+            // Not in $settings: secrets bypass the cache so they are never
+            // written to the cache store in plaintext.
+            'mail.mailers.smtp.password' => Setting::get('mail_password'),
             // Symfony reads the scheme: "smtps" is implicit TLS (465), while
             // "smtp" negotiates STARTTLS (587).
             'mail.mailers.smtp.scheme' => $encryption === 'ssl' ? 'smtps' : 'smtp',
@@ -117,8 +119,10 @@ class SettingsServiceProvider extends ServiceProvider
         // The service-account key is held as JSON in the database rather than
         // as a file, because a writable, non-public key file is awkward to
         // place safely on shared hosting. Spatie accepts an array here.
-        if (filled($settings['analytics_credentials'] ?? null)) {
-            $credentials = json_decode((string) $settings['analytics_credentials'], true);
+        $stored = Setting::get('analytics_credentials');
+
+        if (filled($stored)) {
+            $credentials = json_decode((string) $stored, true);
 
             if (is_array($credentials)) {
                 Config::set('analytics.service_account_credentials_json', $credentials);
