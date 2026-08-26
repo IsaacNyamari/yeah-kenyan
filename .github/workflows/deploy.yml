@@ -1,0 +1,119 @@
+name: deploy
+
+# Deploys to cPanel only after the test workflow has passed on main, so a red
+# build can never reach production. Also runnable by hand from the Actions tab.
+on:
+  workflow_run:
+    workflows: ['tests']
+    branches: [main]
+    types: [completed]
+  workflow_dispatch:
+
+concurrency:
+  group: deploy-production
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  deploy:
+    # workflow_run fires whatever the outcome, so the result is checked here.
+    if: github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success'
+    runs-on: ubuntu-latest
+    environment: production
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.3'
+          extensions: mbstring, openssl, pdo, xml, curl, gd, fileinfo
+          tools: composer:v2
+          coverage: none
+
+      - name: Install PHP dependencies
+        # Production install: no dev packages, optimised autoloader.
+        run: composer install --no-dev --prefer-dist --no-interaction --no-progress --optimize-autoloader
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+
+      - name: Build front-end assets
+        run: |
+          npm ci
+          npm run build
+
+      - name: Stage the release
+        # Everything the server needs and nothing it does not: no node_modules,
+        # no tests, no VCS metadata, and never the local .env.
+        run: |
+          mkdir -p release
+          rsync -a \
+            --exclude='.git' \
+            --exclude='.github' \
+            --exclude='node_modules' \
+            --exclude='tests' \
+            --exclude='release' \
+            --exclude='.env' \
+            --exclude='storage/logs/*' \
+            --exclude='storage/framework/cache/data/*' \
+            --exclude='storage/framework/sessions/*' \
+            --exclude='storage/framework/views/*' \
+            ./ release/
+          # public/ is served from public_html on cPanel, so it ships separately.
+          mv release/public release/public_html_files
+
+      - name: Upload application files
+        uses: SamKirkland/FTP-Deploy-Action@v4.3.5
+        with:
+          server: ${{ secrets.FTP_SERVER }}
+          username: ${{ secrets.FTP_USERNAME }}
+          password: ${{ secrets.FTP_PASSWORD }}
+          protocol: ${{ vars.FTP_PROTOCOL || 'ftps' }}
+          local-dir: ./release/
+          server-dir: ${{ secrets.DEPLOY_APP_PATH }}
+          exclude: |
+            **/public_html_files/**
+            **/.git*
+            **/node_modules/**
+
+      - name: Upload web root
+        uses: SamKirkland/FTP-Deploy-Action@v4.3.5
+        with:
+          server: ${{ secrets.FTP_SERVER }}
+          username: ${{ secrets.FTP_USERNAME }}
+          password: ${{ secrets.FTP_PASSWORD }}
+          protocol: ${{ vars.FTP_PROTOCOL || 'ftps' }}
+          local-dir: ./release/public_html_files/
+          server-dir: ${{ secrets.DEPLOY_PUBLIC_PATH }}
+          # Uploads and generated storage live here and must survive a deploy.
+          exclude: |
+            **/storage/**
+            **/uploads/**
+
+      - name: Run migrations and refresh caches
+        # Optional: only runs when SSH access is configured. Without it, run
+        # `php artisan migrate --force` from cPanel's Terminal after deploying.
+        if: ${{ secrets.SSH_HOST != '' }}
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.SSH_HOST }}
+          username: ${{ secrets.SSH_USERNAME }}
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          port: ${{ secrets.SSH_PORT || 22 }}
+          script: |
+            cd ${{ secrets.DEPLOY_APP_PATH }}
+            php artisan migrate --force
+            php artisan config:cache
+            php artisan route:cache
+            php artisan view:cache
+            php artisan deploy:check
