@@ -12,6 +12,17 @@
                 <a wire:navigate href="{{ route('contact') }}" class="px-4 transition hover:text-white">Advertise</a>
                 <a wire:navigate href="{{ route('contact') }}" class="px-4 transition hover:text-white">Contact</a>
                 <a wire:navigate href="{{ route('news.index') }}" class="pl-4 transition hover:text-white">News</a>
+
+                {{--
+                    Plain links, not wire:navigate: these cross from the public
+                    layout into the admin and auth layouts, which load different
+                    assets. A full page load is the reliable way over.
+                --}}
+                @auth
+                    <a href="{{ route('dashboard') }}" class="px-4 transition hover:text-white">Dashboard</a>
+                @else
+                    <a href="{{ route('login') }}" class="px-4 transition hover:text-white">Admin Login</a>
+                @endauth
             </div>
             <div class="flex items-center gap-4">
                 <a href="{{ \App\Models\Setting::get('social_facebook') }}" target="_blank" rel="noopener" aria-label="Facebook" class="transition hover:text-white">
@@ -94,6 +105,25 @@
                 <x-site.nav-link :href="route('gallery')" :active="request()->routeIs('gallery')">Gallery</x-site.nav-link>
                 <x-site.nav-link :href="route('news.index')" :active="request()->routeIs('news.*')">News</x-site.nav-link>
                 <x-site.nav-link :href="route('contact')" :active="request()->routeIs('contact')">Contact</x-site.nav-link>
+
+                @auth
+                    <a href="{{ route('dashboard') }}"
+                       class="ms-3 flex items-center gap-1.5 rounded-lg bg-brand-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-brand-700">
+                        <flux:icon.squares-2x2 class="size-4" />
+                        Dashboard
+                    </a>
+                @else
+                    <div class="ms-3 flex items-center gap-2">
+                        <a href="{{ route('login') }}"
+                           class="rounded-lg px-3 py-2 text-sm font-medium transition hover:text-brand-400">
+                            Log in
+                        </a>
+                        <a href="{{ route('register') }}"
+                           class="rounded-lg bg-brand-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-brand-700">
+                            Sign up
+                        </a>
+                    </div>
+                @endauth
             </div>
         </div>
 
@@ -128,6 +158,27 @@
                 <a wire:navigate href="{{ route('gallery') }}" class="block py-2 text-sm font-medium">Gallery</a>
                 <a wire:navigate href="{{ route('news.index') }}" class="block py-2 text-sm font-medium">News</a>
                 <a wire:navigate href="{{ route('contact') }}" class="block py-2 text-sm font-medium">Contact</a>
+
+                <div class="mt-3 border-t border-zinc-800 pt-3">
+                    @auth
+                        <a href="{{ route('dashboard') }}"
+                           class="flex items-center gap-2 rounded-lg bg-brand-600 px-4 py-2.5 text-sm font-semibold text-white">
+                            <flux:icon.squares-2x2 class="size-4" />
+                            Dashboard
+                        </a>
+                    @else
+                        <div class="flex items-center gap-2">
+                            <a href="{{ route('login') }}"
+                               class="flex-1 rounded-lg border border-zinc-700 px-4 py-2.5 text-center text-sm font-medium">
+                                Log in
+                            </a>
+                            <a href="{{ route('register') }}"
+                               class="flex-1 rounded-lg bg-brand-600 px-4 py-2.5 text-center text-sm font-semibold text-white">
+                                Sign up
+                            </a>
+                        </div>
+                    @endauth
+                </div>
             </div>
         </div>
     </nav>
