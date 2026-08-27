@@ -3,6 +3,7 @@
 namespace App\Concerns;
 
 use App\Models\Page;
+use App\Exceptions\ImageProcessingException;
 use App\Services\ImageOptimizer;
 use Flux\Flux;
 use Illuminate\Database\Eloquent\Collection;
@@ -145,11 +146,19 @@ trait ManagesPageContent
         $page = $this->editingId ? Page::findOrFail($this->editingId) : new Page;
 
         if ($this->photo instanceof TemporaryUploadedFile) {
+            try {
+                $image = $optimizer->store($this->photo, 'pages');
+            } catch (ImageProcessingException $e) {
+                $this->addError('photo', $e->getMessage());
+
+                return;
+            }
+
             if ($page->exists && ! str_starts_with((string) $page->image, 'images/')) {
                 $optimizer->delete($page->image);
             }
 
-            $page->image = $optimizer->store($this->photo, 'pages');
+            $page->image = $image;
         }
 
         $page->fill([

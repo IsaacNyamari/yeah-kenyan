@@ -4,6 +4,7 @@ use App\Concerns\ConfirmsActions;
 use App\Models\Category;
 use App\Models\Post;
 use App\Services\ArticleHtml;
+use App\Exceptions\ImageProcessingException;
 use App\Services\ImageOptimizer;
 use Flux\Flux;
 use Illuminate\Database\Eloquent\Collection;
@@ -83,9 +84,16 @@ new #[Layout('layouts.app')] #[Title('Manage News')] class extends Component {
         $post = $this->editingId ? Post::findOrFail($this->editingId) : new Post();
 
         if ($this->photo instanceof TemporaryUploadedFile) {
-            $optimizer->delete($post->exists && ! str_starts_with((string) $post->image, 'uploads/') ? $post->image : null);
+            try {
+                $image = $optimizer->store($this->photo, 'posts');
+            } catch (ImageProcessingException $e) {
+                $this->addError('photo', $e->getMessage());
 
-            $post->image = $optimizer->store($this->photo, 'posts');
+                return;
+            }
+
+            $optimizer->delete($post->exists && ! str_starts_with((string) $post->image, 'uploads/') ? $post->image : null);
+            $post->image = $image;
         }
 
         $post->fill([

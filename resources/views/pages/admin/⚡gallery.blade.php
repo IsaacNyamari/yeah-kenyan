@@ -2,6 +2,7 @@
 
 use App\Concerns\ConfirmsActions;
 use App\Models\GalleryItem;
+use App\Exceptions\ImageProcessingException;
 use App\Services\ImageOptimizer;
 use Flux\Flux;
 use Illuminate\Pagination\LengthAwarePaginator;
@@ -51,9 +52,17 @@ new #[Layout('layouts.app')] #[Title('Manage Gallery')] class extends Component 
 
         $sort = (int) GalleryItem::max('sort_order');
 
-        foreach ($this->photos as $photo) {
+        foreach ($this->photos as $index => $photo) {
+            try {
+                $stored = $optimizer->store($photo, 'gallery');
+            } catch (ImageProcessingException $e) {
+                $this->addError("photos.$index", $e->getMessage());
+
+                return;
+            }
+
             GalleryItem::create([
-                'image' => $optimizer->store($photo, 'gallery'),
+                'image' => $stored,
                 'collection' => $this->collection,
                 'title' => $this->title ?: null,
                 'sort_order' => ++$sort,

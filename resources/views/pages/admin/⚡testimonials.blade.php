@@ -2,6 +2,7 @@
 
 use App\Concerns\ConfirmsActions;
 use App\Models\Testimonial;
+use App\Exceptions\ImageProcessingException;
 use App\Services\ImageOptimizer;
 use Flux\Flux;
 use Illuminate\Database\Eloquent\Collection;
@@ -63,10 +64,17 @@ new #[Layout('layouts.app')] #[Title('Testimonials')] class extends Component {
         $testimonial = $this->editingId ? Testimonial::findOrFail($this->editingId) : new Testimonial;
 
         if ($this->photo instanceof TemporaryUploadedFile) {
-            $optimizer->delete($testimonial->image);
+            try {
+                // Portraits render at 112px, so there is no sense storing more.
+                $image = $optimizer->store($this->photo, 'testimonials', maxWidth: 600);
+            } catch (ImageProcessingException $e) {
+                $this->addError('photo', $e->getMessage());
 
-            // Portraits render at 112px, so there is no sense storing more.
-            $testimonial->image = $optimizer->store($this->photo, 'testimonials', maxWidth: 600);
+                return;
+            }
+
+            $optimizer->delete($testimonial->image);
+            $testimonial->image = $image;
         }
 
         $testimonial->fill([
