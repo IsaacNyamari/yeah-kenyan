@@ -3,6 +3,8 @@
 use App\Mail\ContactEnquiryReceived;
 use App\Mail\NewContactEnquiry;
 use App\Models\ContactMessage;
+use App\Models\Setting;
+use App\Providers\SettingsServiceProvider;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\RateLimiter;
@@ -103,4 +105,38 @@ it('validates before consuming a rate-limit attempt', function () {
     submitEnquiry()->assertHasNoErrors();
 
     Mail::assertQueued(NewContactEnquiry::class);
+});
+
+/*
+ * An enquiry must reach two places: the inbox on the dashboard, and the
+ * address configured under Settings -> Mail. The database write happens first
+ * so a mail failure can never lose the enquiry.
+ */
+it('delivers an enquiry to the configured address and the messages table', function () {
+    Setting::putMany(['mail_enquiries_to' => 'admin@yeahkenyan.com']);
+    (new SettingsServiceProvider(app()))->boot();
+
+    submitEnquiry(['name' => 'Grace Achieng', 'email' => 'grace@example.com'])->assertHasNoErrors();
+
+    // 1. Stored for the dashboard.
+    $enquiry = ContactMessage::firstWhere('email', 'grace@example.com');
+
+    expect($enquiry)->not->toBeNull()
+        ->and($enquiry->name)->toBe('Grace Achieng')
+        ->and($enquiry->read_at)->toBeNull();
+
+    // 2. Emailed to the administrator.
+    Mail::assertQueued(
+        NewContactEnquiry::class,
+        fn (NewContactEnquiry $mail): bool => $mail->hasTo('admin@yeahkenyan.com')
+    );
+});
+
+it('still records the enquiry when the address is misconfigured', function () {
+    Setting::putMany(['mail_enquiries_to' => '']);
+    (new SettingsServiceProvider(app()))->boot();
+
+    submitEnquiry(['email' => 'nobody@example.com'])->assertHasNoErrors();
+
+    expect(ContactMessage::where('email', 'nobody@example.com')->exists())->toBeTrue();
 });

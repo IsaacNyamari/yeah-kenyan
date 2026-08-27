@@ -75,6 +75,24 @@ class SettingsServiceProvider extends ServiceProvider
      */
     private function applyMail(array $settings): void
     {
+        /*
+         * Addressing is independent of transport. Applying it before the host
+         * guard means a recipient configured in the dashboard is honoured even
+         * when SMTP has not been filled in yet — otherwise enquiries would go
+         * silently to the .env fallback instead.
+         */
+        if (filled($settings['mail_from_address'] ?? null)) {
+            Config::set('mail.from.address', $settings['mail_from_address']);
+        }
+
+        if (filled($settings['mail_from_name'] ?? null)) {
+            Config::set('mail.from.name', $settings['mail_from_name']);
+        }
+
+        if (filled($settings['mail_enquiries_to'] ?? null)) {
+            Config::set('mail.enquiries_to', $settings['mail_enquiries_to']);
+        }
+
         if (blank($settings['mail_host'] ?? null)) {
             return;
         }
@@ -94,17 +112,6 @@ class SettingsServiceProvider extends ServiceProvider
             'mail.mailers.smtp.scheme' => $encryption === 'ssl' ? 'smtps' : 'smtp',
         ]);
 
-        if (filled($settings['mail_from_address'] ?? null)) {
-            Config::set('mail.from.address', $settings['mail_from_address']);
-        }
-
-        if (filled($settings['mail_from_name'] ?? null)) {
-            Config::set('mail.from.name', $settings['mail_from_name']);
-        }
-
-        if (filled($settings['mail_enquiries_to'] ?? null)) {
-            Config::set('mail.enquiries_to', $settings['mail_enquiries_to']);
-        }
     }
 
     /**
