@@ -32,5 +32,8 @@
         <env name="PULSE_ENABLED" value="false"/>
         <env name="TELESCOPE_ENABLED" value="false"/>
         <env name="NIGHTWATCH_ENABLED" value="false"/>
+        <!-- Analytics must look unconfigured, or the suite makes real Google
+             API calls: slow, non-deterministic, and it burns request quota. -->
+        <env name="ANALYTICS_PROPERTY_ID" value=""/>
     </php>
 </phpunit>

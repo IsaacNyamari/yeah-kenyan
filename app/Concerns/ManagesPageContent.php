@@ -2,8 +2,8 @@
 
 namespace App\Concerns;
 
-use App\Models\Page;
 use App\Exceptions\ImageProcessingException;
+use App\Models\Page;
 use App\Services\ImageOptimizer;
 use Flux\Flux;
 use Illuminate\Database\Eloquent\Collection;

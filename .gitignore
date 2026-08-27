@@ -24,4 +24,5 @@ yarn-error.log
 /.nova
 /.vscode
 /.zed
-# /storage/app/analytics/service-account-credentials.json
+# Google service-account key: a live private key, never commit it.
+/storage/app/analytics/service-account-credentials.json

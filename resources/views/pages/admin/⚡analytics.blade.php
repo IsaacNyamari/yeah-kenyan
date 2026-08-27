@@ -212,15 +212,15 @@ new #[Layout('layouts.app')] #[Title('Analytics')] class extends Component {
                             <div class="flex w-full flex-1 items-end justify-center">
                                 <div class="w-full rounded-t bg-brand-500 transition-all group-hover:bg-brand-600"
                                      style="height: {{ max(2, round(($row['screenPageViews'] ?? 0) / $peak * 100)) }}%"
-                                     title="{{ $row['date']?->format('M j') }}: {{ $row['screenPageViews'] ?? 0 }} views, {{ $row['activeUsers'] ?? 0 }} visitors"></div>
+                                     title="{{ ($row['date'] ?? null)?->format('M j') ?? '' }}: {{ $row['screenPageViews'] ?? 0 }} views, {{ $row['activeUsers'] ?? 0 }} visitors"></div>
                             </div>
                         </div>
                     @endforeach
                 </div>
 
                 <div class="mt-2 flex justify-between text-xs text-zinc-500">
-                    <span>{{ $timeline->first()['date']?->format('M j') }}</span>
-                    <span>{{ $timeline->last()['date']?->format('M j') }}</span>
+                    <span>{{ ($timeline->first()['date'] ?? null)?->format('M j') }}</span>
+                    <span>{{ ($timeline->last()['date'] ?? null)?->format('M j') }}</span>
                 </div>
             @endif
         </flux:card>
