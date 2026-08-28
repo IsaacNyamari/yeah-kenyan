@@ -223,6 +223,27 @@ it('clears the cached config instead of building one', function () {
     }
 });
 
+it('leaves livewire compiled components alone', function () {
+    /*
+     * view:cache clears storage/framework/views, which takes Livewire's
+     * compiled components with it. Livewire then sees the class file and
+     * concludes the component is compiled, while the view it points at is
+     * gone — a 500 on every page that no amount of traffic clears.
+     */
+    $dir = storage_path('framework/views/livewire/views');
+    File::ensureDirectoryExists($dir);
+    File::put($dir.'/deploy-probe.blade.php', 'compiled');
+
+    try {
+        app(GitDeployer::class)->refreshCaches();
+
+        expect(File::exists($dir.'/deploy-probe.blade.php'))->toBeTrue();
+    } finally {
+        File::delete($dir.'/deploy-probe.blade.php');
+        Artisan::call('route:clear');
+    }
+});
+
 it('hands git the full parent environment', function () {
     /*
      * Symfony only merges the parent environment when PHP has populated $_ENV,

@@ -145,14 +145,22 @@ class GitDeployer
     }
 
     /**
-     * Rebuild what makes the site fast, without caching config.
+     * Rebuild what makes the site fast, and nothing else.
      *
-     * config:cache is deliberately absent. It boots a fresh application to
-     * collect config, which runs SettingsServiceProvider, which decrypts the
-     * mail password and the Google service-account key out of the database —
-     * and the whole array is then written to bootstrap/cache/config.php in
-     * plaintext. Clearing it instead also removes any such file left behind by
-     * an earlier deploy.
+     * Two commands are deliberately absent.
+     *
+     * config:cache boots a fresh application to collect config, which runs
+     * SettingsServiceProvider, which decrypts the mail password and the Google
+     * service-account key out of the database — and the whole array is then
+     * written to bootstrap/cache/config.php in plaintext. Clearing it instead
+     * also removes any such file left behind by an earlier deploy.
+     *
+     * view:cache clears storage/framework/views first, which takes Livewire's
+     * compiled single-file components with it. Livewire decides a component is
+     * already compiled by looking only for its class file, and treats a
+     * missing compiled view as present, so any state where the class survives
+     * without the view renders a 500 that no amount of traffic clears. It also
+     * cannot rebuild them: they are compiled by Livewire, not by Blade.
      *
      * @return array{ok: bool, output: string, error: string|null}
      */
@@ -161,7 +169,7 @@ class GitDeployer
         $lines = [];
 
         try {
-            foreach (['config:clear', 'route:cache', 'view:cache'] as $command) {
+            foreach (['config:clear', 'route:cache'] as $command) {
                 Artisan::call($command);
                 $lines[] = $command.': '.(trim(Artisan::output()) ?: 'done');
             }
