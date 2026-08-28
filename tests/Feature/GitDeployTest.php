@@ -1,6 +1,7 @@
 <?php
 
 use App\Models\User;
+use App\Services\AppVersion;
 use App\Services\GitDeployer;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\File;
@@ -18,7 +19,7 @@ use Livewire\Livewire;
  */
 function fakeDeployer(array $overrides = []): GitDeployer
 {
-    $fake = new class extends GitDeployer
+    $fake = new class(new AppVersion) extends GitDeployer
     {
         /** @var array<string, mixed> */
         public array $behaviour = [];

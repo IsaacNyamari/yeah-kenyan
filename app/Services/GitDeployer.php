@@ -21,6 +21,8 @@ class GitDeployer
      */
     private const TIMEOUT = 120;
 
+    public function __construct(private AppVersion $version) {}
+
     /**
      * Whether this server can run the deploy at all.
      *
@@ -59,13 +61,15 @@ class GitDeployer
     /**
      * How far behind the remote this copy is.
      *
-     * @return array{ok: bool, branch: string, behind: int, upToDate: bool, commits: list<string>, current: string, error: string|null}
+     * @return array{ok: bool, branch: string, behind: int, upToDate: bool, commits: list<string>, current: string, installedVersion: string, latestVersion: string|null, error: string|null}
      */
     public function status(): array
     {
         $blank = [
             'ok' => false, 'branch' => '', 'behind' => 0, 'upToDate' => false,
-            'commits' => [], 'current' => '', 'error' => null,
+            'commits' => [], 'current' => '',
+            'installedVersion' => $this->version->current(), 'latestVersion' => null,
+            'error' => null,
         ];
 
         $branch = $this->run(['git', 'rev-parse', '--abbrev-ref', 'HEAD'], timeout: 15);
@@ -106,6 +110,8 @@ class GitDeployer
             'upToDate' => $count === 0,
             'commits' => array_values(array_filter(explode("\n", trim($log['output'])))),
             'current' => trim($current['output']),
+            'installedVersion' => $this->version->current(),
+            'latestVersion' => $this->latestRelease(),
             'error' => null,
         ];
     }
@@ -178,6 +184,40 @@ class GitDeployer
         } catch (\Throwable $e) {
             return ['ok' => false, 'output' => implode("\n", $lines), 'error' => $e->getMessage()];
         }
+    }
+
+    /**
+     * The newest version tag published on the remote.
+     *
+     * Only vX.Y.Z tags count. A repository also carries tags that are names
+     * rather than versions, and there is no sensible way to tell whether one of
+     * those is newer than what is installed.
+     */
+    public function latestRelease(): ?string
+    {
+        $result = $this->run(['git', 'ls-remote', '--tags', '--refs', 'origin'], timeout: 60);
+
+        if (! $result['ok']) {
+            return null;
+        }
+
+        $versions = [];
+
+        foreach (explode("\n", $result['output']) as $line) {
+            if (preg_match('#refs/tags/(v?\d+\.\d+\.\d+)$#', trim($line), $match) === 1) {
+                $versions[] = ltrim($match[1], 'vV');
+            }
+        }
+
+        if ($versions === []) {
+            return null;
+        }
+
+        // Closure rather than the function name: version_compare takes an
+        // optional third argument that usort does not supply.
+        usort($versions, fn (string $a, string $b): int => version_compare($a, $b));
+
+        return end($versions);
     }
 
     /**

@@ -243,6 +243,23 @@ new #[Layout('layouts.app')] #[Title('Settings')] class extends Component {
         ];
     }
 
+    #[\Livewire\Attributes\Computed]
+    public function installedVersion(): string
+    {
+        return app(\App\Services\AppVersion::class)->current();
+    }
+
+    /**
+     * Whether the remote has published a version newer than the one running.
+     */
+    #[\Livewire\Attributes\Computed]
+    public function releaseAvailable(): bool
+    {
+        $latest = $this->deployStatus['latestVersion'] ?? null;
+
+        return is_string($latest) && app(\App\Services\AppVersion::class)->isBehind($latest);
+    }
+
     /**
      * Ask the remote what is waiting.
      */
@@ -761,6 +778,31 @@ new #[Layout('layouts.app')] #[Title('Settings')] class extends Component {
                             Remote: <span class="font-mono">{{ $deployRemote }}</span>
                         </flux:text>
                     @endif
+
+                    <div class="flex flex-wrap items-center gap-3 rounded-lg border border-zinc-200 p-4 dark:border-zinc-700">
+                        <div>
+                            <flux:text size="sm">Installed version</flux:text>
+                            <p class="font-mono text-lg font-bold">v{{ $this->installedVersion }}</p>
+                        </div>
+
+                        @if (filled($deployStatus['latestVersion'] ?? null))
+                            <flux:icon.arrow-right class="size-4 text-zinc-400" />
+                            <div>
+                                <flux:text size="sm">Latest release</flux:text>
+                                <p class="font-mono text-lg font-bold">v{{ $deployStatus['latestVersion'] }}</p>
+                            </div>
+
+                            @if ($this->releaseAvailable)
+                                <flux:badge color="amber">Update available</flux:badge>
+                            @else
+                                <flux:badge color="lime">Running the latest release</flux:badge>
+                            @endif
+                        @elseif (($deployStatus['ok'] ?? false))
+                            <flux:text size="sm" class="ms-auto">
+                                No version tags published yet, so only commits can be compared.
+                            </flux:text>
+                        @endif
+                    </div>
 
                     @if (($deployStatus['ok'] ?? false))
                         <div class="rounded-lg border border-zinc-200 p-4 dark:border-zinc-700">

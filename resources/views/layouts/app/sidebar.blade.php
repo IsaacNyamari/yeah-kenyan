@@ -143,6 +143,10 @@
                 <flux:sidebar.item icon="globe-alt" :href="route('home')" target="_blank">
                     {{ __('View Website') }}
                 </flux:sidebar.item>
+
+                <div class="px-3 pt-2 font-mono text-[11px] text-zinc-400 dark:text-zinc-600">
+                    v{{ app(\App\Services\AppVersion::class)->current() }}
+                </div>
             </flux:sidebar.group>
         </flux:sidebar.nav>
 
