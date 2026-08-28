@@ -17,6 +17,8 @@ enum Permission: string
 
     case ModeratePosts = 'moderate posts';
 
+    case ManageHomepage = 'manage homepage';
+
     case ManageGallery = 'manage gallery';
 
     case ManageServices = 'manage services';
@@ -44,6 +46,7 @@ enum Permission: string
         return match ($this) {
             self::ManageNews => 'Write articles',
             self::ModeratePosts => 'Review submissions',
+            self::ManageHomepage => 'Edit the homepage hero',
             self::ManageGallery => 'Manage the gallery',
             self::ManageServices => 'Manage services',
             self::ManageClasses => 'Manage online classes',
@@ -63,6 +66,7 @@ enum Permission: string
         return match ($this) {
             self::ManageNews => 'Write and submit articles. Authors only ever see their own.',
             self::ModeratePosts => 'Approve or send back articles other people submitted.',
+            self::ManageHomepage => 'Change the rotating banner and the tiles beside it.',
             self::ManageGallery => 'Upload and remove gallery images.',
             self::ManageServices => 'Edit the service pages.',
             self::ManageClasses => 'Edit the online class pages.',
@@ -84,7 +88,7 @@ enum Permission: string
     {
         return match ($this) {
             self::ManageNews, self::ModeratePosts => 'Newsroom',
-            self::ManageGallery, self::ManageServices, self::ManageClasses,
+            self::ManageHomepage, self::ManageGallery, self::ManageServices, self::ManageClasses,
             self::ManageTestimonials, self::ManageContact => 'Site content',
             self::ManageMessages, self::ManageNewsletters, self::ManageSubscribers => 'Audience',
             self::ViewAnalytics, self::ManageSettings, self::ManageRoles => 'Administration',

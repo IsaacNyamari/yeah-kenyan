@@ -28,6 +28,7 @@ class GalleryItem extends Model
     {
         return Post::where('image', $this->image)->exists()
             || Page::where('image', $this->image)->exists()
-            || Testimonial::where('image', $this->image)->exists();
+            || Testimonial::where('image', $this->image)->exists()
+            || HeroPanel::where('image', $this->image)->exists();
     }
 }

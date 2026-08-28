@@ -3,6 +3,7 @@
 namespace App\Concerns;
 
 use App\Models\GalleryItem;
+use App\Models\HeroPanel;
 use App\Models\Page;
 use App\Models\Post;
 use App\Models\Testimonial;
@@ -121,7 +122,7 @@ trait PicksGalleryImages
      */
     private function imageIsSharedElsewhere(string $path, ?Model $except = null): bool
     {
-        foreach ([GalleryItem::class, Post::class, Page::class, Testimonial::class] as $model) {
+        foreach ([GalleryItem::class, Post::class, Page::class, Testimonial::class, HeroPanel::class] as $model) {
             $query = $model::where('image', $path);
 
             if ($except instanceof $model && $except->exists) {

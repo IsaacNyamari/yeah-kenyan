@@ -30,6 +30,10 @@ Route::middleware(['auth', 'verified'])->group(function () {
         ->middleware('can:moderate posts')
         ->name('admin.moderation');
 
+    Route::livewire('admin/homepage', 'pages::admin.homepage')
+        ->middleware('can:manage homepage')
+        ->name('admin.homepage');
+
     Route::livewire('admin/gallery', 'pages::admin.gallery')
         ->middleware('can:manage gallery')
         ->name('admin.gallery');

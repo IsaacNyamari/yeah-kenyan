@@ -1,14 +1,34 @@
 <?php
 
+use App\Models\HeroPanel;
 use App\Models\Post;
 use App\Models\TeamMember;
 use App\Models\Testimonial;
+use App\Support\HeroPanelKind;
 use Illuminate\Database\Eloquent\Collection;
 use Livewire\Attributes\Computed;
 use Livewire\Attributes\Layout;
 use Livewire\Component;
 
 new #[Layout('layouts.site')] class extends Component {
+    /**
+     * @return Collection<int, HeroPanel>
+     */
+    #[Computed]
+    public function heroSlides(): Collection
+    {
+        return HeroPanel::visible()->ofKind(HeroPanelKind::Slide)->get();
+    }
+
+    /**
+     * @return Collection<int, HeroPanel>
+     */
+    #[Computed]
+    public function heroTiles(): Collection
+    {
+        return HeroPanel::visible()->ofKind(HeroPanelKind::Tile)->get();
+    }
+
     /**
      * @return Collection<int, Post>
      */
@@ -60,65 +80,81 @@ new #[Layout('layouts.site')] class extends Component {
 <div>
 
     {{-- Hero --}}
-    <section class="mx-auto max-w-[1600px] px-4 pt-6">
-        <div class="grid gap-3 lg:grid-cols-12">
+    @if ($this->heroSlides->isNotEmpty() || $this->heroTiles->isNotEmpty())
+        <section class="mx-auto max-w-[1600px] px-4 pt-6">
+            <div class="grid gap-3 lg:grid-cols-12">
 
-            {{-- Rotating feature panel --}}
-            <div
-                x-data="{
-                    active: 0,
-                    total: {{ count(config('site.hero.slides')) }},
-                    timer: null,
-                    start() { this.timer = setInterval(() => this.active = (this.active + 1) % this.total, 6000) },
-                    stop() { clearInterval(this.timer) },
-                }"
-                x-init="start()"
-                @mouseenter="stop()" @mouseleave="start()"
-                class="relative h-[420px] overflow-hidden rounded-lg lg:col-span-7 lg:h-[500px]"
-            >
-                @foreach (config('site.hero.slides') as $index => $slide)
-                    <div x-show="active === {{ $index }}" x-transition.opacity.duration.700ms class="absolute inset-0">
-                        <img src="{{ asset($slide['image']) }}" alt="{{ $slide['badge'] }}" class="size-full object-cover">
-                        <div class="absolute inset-0 bg-gradient-to-t from-black/85 via-black/30 to-transparent"></div>
-                        <div class="absolute bottom-0 p-8">
-                            <span class="inline-block bg-brand-600 px-3 py-1 text-xs font-semibold tracking-wider text-white uppercase">
-                                {{ $slide['badge'] }}
-                            </span>
-                            <p class="mt-3 max-w-2xl text-2xl font-bold text-white uppercase sm:text-3xl">
-                                {{ $slide['text'] }}
-                            </p>
-                        </div>
+                {{-- Rotating feature panel --}}
+                @if ($this->heroSlides->isNotEmpty())
+                    <div
+                        x-data="{
+                            active: 0,
+                            total: {{ $this->heroSlides->count() }},
+                            timer: null,
+                            start() { if (this.total > 1) { this.timer = setInterval(() => this.active = (this.active + 1) % this.total, 6000) } },
+                            stop() { clearInterval(this.timer) },
+                        }"
+                        x-init="start()"
+                        @mouseenter="stop()" @mouseleave="start()"
+                        @class([
+                            'relative h-[420px] overflow-hidden rounded-lg lg:h-[500px]',
+                            'lg:col-span-7' => $this->heroTiles->isNotEmpty(),
+                            'lg:col-span-12' => $this->heroTiles->isEmpty(),
+                        ])
+                    >
+                        @foreach ($this->heroSlides as $index => $slide)
+                            <div x-show="active === {{ $index }}" x-transition.opacity.duration.700ms class="absolute inset-0">
+                                <img src="{{ $slide->image_url }}" alt="{{ $slide->badge }}" class="size-full object-cover">
+                                <div class="absolute inset-0 bg-gradient-to-t from-black/85 via-black/30 to-transparent"></div>
+                                <div class="absolute bottom-0 p-8">
+                                    <span class="inline-block bg-brand-600 px-3 py-1 text-xs font-semibold tracking-wider text-white uppercase">
+                                        {{ $slide->badge }}
+                                    </span>
+                                    <p class="mt-3 max-w-2xl text-2xl font-bold text-white uppercase sm:text-3xl">
+                                        {{ $slide->text }}
+                                    </p>
+                                </div>
+                            </div>
+                        @endforeach
+
+                        @if ($this->heroSlides->count() > 1)
+                            <div class="absolute right-6 bottom-6 flex gap-2">
+                                @foreach ($this->heroSlides as $index => $slide)
+                                    <button type="button" @click="active = {{ $index }}"
+                                            :class="active === {{ $index }} ? 'bg-brand-500 w-8' : 'bg-white/50 w-2'"
+                                            class="h-2 rounded-full transition-all"
+                                            aria-label="Go to slide {{ $index + 1 }}"></button>
+                                @endforeach
+                            </div>
+                        @endif
                     </div>
-                @endforeach
+                @endif
 
-                <div class="absolute right-6 bottom-6 flex gap-2">
-                    @foreach (config('site.hero.slides') as $index => $slide)
-                        <button type="button" @click="active = {{ $index }}"
-                                :class="active === {{ $index }} ? 'bg-brand-500 w-8' : 'bg-white/50 w-2'"
-                                class="h-2 rounded-full transition-all"
-                                aria-label="Go to slide {{ $index + 1 }}"></button>
-                    @endforeach
-                </div>
-            </div>
-
-            {{-- Static tiles --}}
-            <div class="grid gap-3 sm:grid-cols-2 lg:col-span-5">
-                @foreach (config('site.hero.tiles') as $tile)
-                    <div class="group relative h-[240px] overflow-hidden rounded-lg">
-                        <img src="{{ asset($tile['image']) }}" alt="{{ $tile['badge'] }}"
-                             class="size-full object-cover transition duration-500 group-hover:scale-105">
-                        <div class="absolute inset-0 bg-gradient-to-t from-black/85 via-black/25 to-transparent"></div>
-                        <div class="absolute bottom-0 p-4">
-                            <span class="inline-block bg-leaf-600 px-2 py-0.5 text-[10px] font-semibold tracking-wider text-white uppercase">
-                                {{ $tile['badge'] }}
-                            </span>
-                            <p class="mt-2 text-sm font-semibold text-white uppercase">{{ $tile['text'] }}</p>
-                        </div>
+                {{-- Static tiles --}}
+                @if ($this->heroTiles->isNotEmpty())
+                    <div @class([
+                        'grid gap-3 sm:grid-cols-2',
+                        'lg:col-span-5' => $this->heroSlides->isNotEmpty(),
+                        'lg:col-span-12' => $this->heroSlides->isEmpty(),
+                    ])>
+                        @foreach ($this->heroTiles as $tile)
+                            <div class="group relative h-[240px] overflow-hidden rounded-lg">
+                                <img src="{{ $tile->image_url }}" alt="{{ $tile->badge }}"
+                                     class="size-full object-cover transition duration-500 group-hover:scale-105">
+                                <div class="absolute inset-0 bg-gradient-to-t from-black/85 via-black/25 to-transparent"></div>
+                                <div class="absolute bottom-0 p-4">
+                                    <span class="inline-block bg-leaf-600 px-2 py-0.5 text-[10px] font-semibold tracking-wider text-white uppercase">
+                                        {{ $tile->badge }}
+                                    </span>
+                                    <p class="mt-2 text-sm font-semibold text-white uppercase">{{ $tile->text }}</p>
+                                </div>
+                            </div>
+                        @endforeach
                     </div>
-                @endforeach
+                @endif
             </div>
-        </div>
-    </section>
+        </section>
+    @endif
 
     {{-- Services --}}
     <section class="mx-auto max-w-7xl px-6 py-16">

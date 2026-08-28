@@ -43,8 +43,15 @@
                 @endcan
             </flux:sidebar.group>
 
-            @canany(['manage services', 'manage classes', 'manage gallery', 'manage testimonials'])
+            @canany(['manage homepage', 'manage services', 'manage classes', 'manage gallery', 'manage testimonials'])
                 <flux:sidebar.group :heading="__('Content')" class="grid">
+                    @can('manage homepage')
+                        <flux:sidebar.item icon="home-modern" :href="route('admin.homepage')"
+                            :current="request()->routeIs('admin.homepage')" wire:navigate>
+                            {{ __('Homepage') }}
+                        </flux:sidebar.item>
+                    @endcan
+
                     @can('manage services')
                         <flux:sidebar.item icon="briefcase" :href="route('admin.services')"
                             :current="request()->routeIs('admin.services')" wire:navigate>

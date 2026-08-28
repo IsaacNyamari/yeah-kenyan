@@ -31,26 +31,6 @@ return [
 
     /*
     |--------------------------------------------------------------------------
-    | Homepage hero panels
-    |--------------------------------------------------------------------------
-    */
-
-    'hero' => [
-        'slides' => [
-            ['badge' => 'Branding', 'image' => 'images/branding1.jpg', 'text' => 'We create messages that resonate with your target audience'],
-            ['badge' => 'Streaming', 'image' => 'images/team1.jpg', 'text' => 'We provide seamless streaming solutions that engage and connect your audience'],
-            ['badge' => 'Video Shoot', 'image' => 'images/drone.jpg', 'text' => 'We capture high-quality video shoots that tell your story with impact'],
-        ],
-        'tiles' => [
-            ['badge' => 'Expertise', 'image' => 'images/team2.jpg', 'text' => 'Experienced experts'],
-            ['badge' => 'Unbeatable', 'image' => 'images/streaming1.jpg', 'text' => 'We deliver unbeatable video shoots that bring your vision to life'],
-            ['badge' => 'Sound System', 'image' => 'images/soundsystem.jpg', 'text' => 'Powerful sound systems that elevate your events with clear, crisp audio'],
-            ['badge' => 'No Hidden Costs', 'image' => 'images/hiddencosts.jpg', 'text' => 'Just quality services you can trust'],
-        ],
-    ],
-
-    /*
-    |--------------------------------------------------------------------------
     | About page
     |--------------------------------------------------------------------------
     */
