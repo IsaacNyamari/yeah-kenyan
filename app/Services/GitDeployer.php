@@ -303,31 +303,19 @@ class GitDeployer
     /**
      * Environment for the git process.
      *
-     * HOME matters: without it git cannot find ~/.ssh, and a pull from an SSH
-     * remote fails with a bare permission error that says nothing useful.
+     * The parent environment is copied in explicitly. Symfony only merges it
+     * for you when PHP has populated $_ENV, and variables_order commonly omits
+     * E — so passing an array of overrides alone hands the child a near-empty
+     * environment with no PATH and no SystemRoot. git then fails before it
+     * starts, with a name-resolution error that points nowhere near the cause.
      *
      * @return array<string, string>
      */
     private function environment(): array
     {
-        $env = [];
-
-        // USERPROFILE and HOMEDRIVE/HOMEPATH are the Windows equivalents of
-        // HOME, and SSH_AUTH_SOCK lets an agent supply the key. Passing all of
-        // them costs nothing and saves a baffling failure on either platform.
-        foreach (['HOME', 'USERPROFILE', 'HOMEDRIVE', 'HOMEPATH', 'PATH', 'GIT_SSH_COMMAND', 'SSH_AUTH_SOCK'] as $key) {
-            $value = getenv($key);
-
-            if (is_string($value) && $value !== '') {
-                $env[$key] = $value;
-            }
-        }
-
         // Never let git stop for a username or passphrase; there is no
         // terminal here, and a prompt would hang until the timeout.
-        $env['GIT_TERMINAL_PROMPT'] = '0';
-
-        return $env;
+        return [...getenv(), 'GIT_TERMINAL_PROMPT' => '0'];
     }
 
     private function canStartProcesses(): bool

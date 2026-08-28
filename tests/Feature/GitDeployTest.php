@@ -2,6 +2,7 @@
 
 use App\Models\User;
 use App\Services\GitDeployer;
+use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\File;
 use Livewire\Livewire;
 
@@ -209,10 +210,34 @@ it('clears the cached config instead of building one', function () {
     $cached = base_path('bootstrap/cache/config.php');
     File::put($cached, '<?php return [];');
 
-    app(GitDeployer::class)->refreshCaches();
+    try {
+        app(GitDeployer::class)->refreshCaches();
 
-    expect(File::exists($cached))->toBeFalse();
+        expect(File::exists($cached))->toBeFalse();
+    } finally {
+        // This one runs the real artisan commands, which cache routes and
+        // views in the working copy. Left behind, they serve stale routes to
+        // whoever runs the suite next.
+        Artisan::call('route:clear');
+        Artisan::call('view:clear');
+    }
 });
+
+it('hands git the full parent environment', function () {
+    /*
+     * Symfony only merges the parent environment when PHP has populated $_ENV,
+     * and variables_order commonly omits E. Passing overrides alone left git
+     * with no PATH and no SystemRoot, which surfaced as a name-resolution
+     * failure pointing nowhere near the cause.
+     */
+    $support = app(GitDeployer::class)->support();
+
+    expect($support['ok'])->toBeTrue()
+        ->and($support['reason'])->toBeNull();
+})->skip(
+    fn (): bool => ! function_exists('proc_open') || ! is_dir(base_path('.git')),
+    'Needs a git checkout and proc_open.',
+);
 
 it('reports a server with no repository', function () {
     // The real check, not the fake: a site uploaded by FTP has no .git.
