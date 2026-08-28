@@ -4,12 +4,14 @@ use App\Concerns\ConfirmsActions;
 use App\Concerns\PicksGalleryImages;
 use App\Models\Category;
 use App\Models\Post;
+use App\Support\PostStatus;
 use App\Services\ArticleHtml;
 use App\Exceptions\ImageProcessingException;
 use App\Services\ImageOptimizer;
 use Flux\Flux;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Pagination\LengthAwarePaginator;
+use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Str;
 use Livewire\Attributes\Computed;
 use Livewire\Attributes\Title;
@@ -51,7 +53,24 @@ new #[Layout('layouts.app')] #[Title('Manage News')] class extends Component {
     #[Computed]
     public function posts(): LengthAwarePaginator
     {
-        return Post::with('category')->latest()->paginate(10);
+        return Post::with('category', 'reviewer')
+            // An author sees their own work only; showing everyone's would let
+            // them edit articles they did not write.
+            ->unless($this->canModerate, fn ($query) => $query->where('submitted_by', auth()->id()))
+            ->latest()
+            ->paginate(10);
+    }
+
+    #[Computed]
+    public function canModerate(): bool
+    {
+        return Gate::allows('moderate-content');
+    }
+
+    #[Computed]
+    public function canPost(): bool
+    {
+        return Gate::allows('post-content');
     }
 
     /**
@@ -81,9 +100,13 @@ new #[Layout('layouts.app')] #[Title('Manage News')] class extends Component {
 
     public function save(ImageOptimizer $optimizer): void
     {
+        abort_unless($this->canPost, 403, 'Posting is currently closed.');
+
         $validated = $this->validate();
 
         $post = $this->editingId ? Post::findOrFail($this->editingId) : new Post();
+
+        abort_unless($this->mayEdit($post), 403);
 
         if ($this->photo instanceof TemporaryUploadedFile) {
             try {
@@ -114,7 +137,24 @@ new #[Layout('layouts.app')] #[Title('Manage News')] class extends Component {
         ]);
 
         $post->slug ??= Str::slug($validated['title']).'-'.Str::lower(Str::random(6));
-        $post->published_at = $this->publish ? ($post->published_at ?? now()) : null;
+        $post->submitted_by ??= auth()->id();
+
+        if ($this->canModerate) {
+            // Someone who could approve this in the queue anyway; making them
+            // round-trip through it would be ceremony, not review.
+            $post->status = PostStatus::Approved;
+            $post->reviewed_by = auth()->id();
+            $post->reviewed_at = now();
+            $post->review_note = null;
+            $post->published_at = $this->publish ? ($post->published_at ?? now()) : null;
+        } else {
+            // An author's article goes to the queue, and stays off the site
+            // until a moderator approves it.
+            $post->status = PostStatus::Pending;
+            $post->reviewed_by = null;
+            $post->reviewed_at = null;
+            $post->published_at = null;
+        }
 
         $post->save();
 
@@ -123,13 +163,17 @@ new #[Layout('layouts.app')] #[Title('Manage News')] class extends Component {
         Flux::toast(
             variant: 'success',
             heading: 'Saved',
-            text: 'The article was saved and its image optimized.',
+            text: $this->canModerate
+                ? 'The article was saved and its image optimized.'
+                : 'The article was sent for review. A moderator will approve it before it appears on the site.',
         );
     }
 
     public function edit(int $id): void
     {
         $post = Post::findOrFail($id);
+
+        abort_unless($this->mayEdit($post), 403);
 
         $this->editingId = $post->id;
         $this->title = $post->title;
@@ -159,11 +203,33 @@ new #[Layout('layouts.app')] #[Title('Manage News')] class extends Component {
 
         $post = Post::findOrFail($id);
 
+        abort_unless($this->mayEdit($post), 403);
+
         $this->detachImage($post->image, $optimizer, $post);
 
         $post->delete();
 
         Flux::toast(variant: 'success', heading: 'Deleted', text: 'The article was removed.');
+    }
+
+    /**
+     * Moderators and administrators may work on anything. An author may only
+     * touch their own article, and only while it is still theirs to change —
+     * once it is queued or live, editing it would sidestep the review that
+     * approved it.
+     */
+    private function mayEdit(Post $post): bool
+    {
+        if ($this->canModerate) {
+            return true;
+        }
+
+        if (! $post->exists) {
+            return true;
+        }
+
+        return $post->submitted_by === auth()->id()
+            && $post->status->isEditableByAuthor();
     }
 
     public function resetForm(): void
@@ -180,8 +246,24 @@ new #[Layout('layouts.app')] #[Title('Manage News')] class extends Component {
 
     <div>
         <flux:heading size="xl">News</flux:heading>
-        <flux:text class="mt-1">Write and publish articles for the site newsroom.</flux:text>
+        <flux:text class="mt-1">
+            @if ($this->canModerate)
+                Write and publish articles for the site newsroom.
+            @else
+                Write articles for the site newsroom. A moderator reviews each one before it goes live.
+            @endif
+        </flux:text>
     </div>
+
+    @unless ($this->canPost)
+        <flux:callout variant="warning">
+            <flux:callout.heading>Posting is paused</flux:callout.heading>
+            <flux:callout.text>
+                An administrator has switched off posting for the moment. You can still read what you have
+                written, but saving is disabled until it is switched back on.
+            </flux:callout.text>
+        </flux:callout>
+    @endunless
 
     <div>
         <div class="grid gap-10 lg:grid-cols-5">
@@ -220,12 +302,20 @@ new #[Layout('layouts.app')] #[Title('Manage News')] class extends Component {
                     <div class="space-y-2">
                         <flux:checkbox wire:model="is_featured" label="Feature on homepage" />
                         <flux:checkbox wire:model="is_trending" label="Show in trending" />
-                        <flux:checkbox wire:model="publish" label="Published" />
+                        @if ($this->canModerate)
+                            <flux:checkbox wire:model="publish" label="Published" />
+                        @endif
                     </div>
 
                     <div class="flex gap-3">
-                        <flux:button type="submit" variant="primary">
-                            <span wire:loading.remove wire:target="save">{{ $editingId ? 'Update' : 'Publish' }}</span>
+                        <flux:button type="submit" variant="primary" :disabled="! $this->canPost">
+                            <span wire:loading.remove wire:target="save">
+                                @if ($this->canModerate)
+                                    {{ $editingId ? 'Update' : 'Publish' }}
+                                @else
+                                    {{ $editingId ? 'Resubmit for review' : 'Send for review' }}
+                                @endif
+                            </span>
                             <span wire:loading wire:target="save">Saving...</span>
                         </flux:button>
 
@@ -249,13 +339,23 @@ new #[Layout('layouts.app')] #[Title('Manage News')] class extends Component {
                             @endif
 
                             <div class="min-w-0 flex-1">
-                                <h3 class="truncate font-semibold">{{ $post->title }}</h3>
+                                <div class="flex items-center gap-2">
+                                    <h3 class="truncate font-semibold">{{ $post->title }}</h3>
+                                    <flux:badge size="sm" :color="$post->status->badgeColor()">
+                                        {{ $post->status->label() }}
+                                    </flux:badge>
+                                </div>
                                 <p class="mt-0.5 text-xs text-zinc-500">
                                     <span class="capitalize">{{ $post->category->name }}</span>
                                     &middot;
-                                    {{ site_time($post->published_at)?->format('M d, Y') ?? 'Draft' }}
+                                    {{ site_time($post->published_at)?->format('M d, Y') ?? 'Not published' }}
                                     @if ($post->is_featured) &middot; Featured @endif
                                 </p>
+                                @if ($post->status === App\Support\PostStatus::Rejected && filled($post->review_note))
+                                    <p class="mt-1 text-xs text-red-600 dark:text-red-400">
+                                        Sent back: {{ $post->review_note }}
+                                    </p>
+                                @endif
                             </div>
 
                             <div class="flex shrink-0 gap-2">

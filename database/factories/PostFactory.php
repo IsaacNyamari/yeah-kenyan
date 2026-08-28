@@ -4,6 +4,7 @@ namespace Database\Factories;
 
 use App\Models\Category;
 use App\Models\Post;
+use App\Support\PostStatus;
 use Illuminate\Database\Eloquent\Factories\Factory;
 use Illuminate\Support\Str;
 
@@ -30,12 +31,25 @@ class PostFactory extends Factory
             'is_featured' => false,
             'is_trending' => false,
             'published_at' => now()->subDay(),
+            // Most tests want an article the public site will show, and that
+            // needs approval as well as a publication date.
+            'status' => PostStatus::Approved,
         ];
     }
 
     public function draft(): static
     {
         return $this->state(['published_at' => null]);
+    }
+
+    public function awaitingReview(): static
+    {
+        return $this->state(['status' => PostStatus::Pending, 'published_at' => null]);
+    }
+
+    public function rejected(): static
+    {
+        return $this->state(['status' => PostStatus::Rejected, 'published_at' => null]);
     }
 
     public function featured(): static

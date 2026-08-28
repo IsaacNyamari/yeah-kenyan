@@ -21,6 +21,11 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::livewire('admin/messages', 'pages::admin.messages')->name('admin.messages');
     Route::livewire('admin/contact', 'pages::admin.contact')->name('admin.contact');
 
+    // The review queue: moderators and administrators.
+    Route::livewire('admin/moderation', 'pages::admin.moderation')
+        ->middleware('can:moderate-content')
+        ->name('admin.moderation');
+
     // Roles decide what everyone else may do, so administrators only.
     Route::livewire('admin/users', 'pages::admin.users')
         ->middleware('admin')

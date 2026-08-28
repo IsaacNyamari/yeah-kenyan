@@ -27,6 +27,14 @@
                     {{ __('News') }}
                 </flux:sidebar.item>
 
+                @can('moderate-content')
+                    <flux:sidebar.item icon="document-check" :href="route('admin.moderation')"
+                        :current="request()->routeIs('admin.moderation')" wire:navigate
+                        :badge="\App\Models\Post::awaitingReview()->count() ?: null">
+                        {{ __('Moderation') }}
+                    </flux:sidebar.item>
+                @endcan
+
                 <flux:sidebar.item icon="briefcase" :href="route('admin.services')"
                     :current="request()->routeIs('admin.services')" wire:navigate>
                     {{ __('Services') }}

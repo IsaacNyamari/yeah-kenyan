@@ -18,7 +18,7 @@ use Livewire\Livewire;
  */
 
 beforeEach(function () {
-    $this->actingAs(User::factory()->create());
+    $this->actingAs(User::factory()->admin()->create());
     Storage::fake('public');
 
     // Explicit collection so the filtering test is not confused by the factory default.
