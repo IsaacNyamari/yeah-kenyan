@@ -1,8 +1,10 @@
 <?php
 
 use App\Models\Setting;
+use App\Services\GitDeployer;
 use App\Services\NewYorkTimesFeed;
 use Flux\Flux;
+use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\Mail;
 use Livewire\Attributes\Layout;
 use Livewire\Attributes\Title;
@@ -49,6 +51,35 @@ new #[Layout('layouts.app')] #[Title('Settings')] class extends Component {
     public bool $analytics_tracking_enabled = false;
 
     public string $analytics_measurement_id = '';
+
+    // Deployment
+    /** @var array<string, mixed> */
+    public array $deployStatus = [];
+
+    /** @var array<int, array{key: string, label: string, state: string, output: string}> */
+    public array $deploySteps = [];
+
+    public bool $deploying = false;
+
+    public int $deployStep = 0;
+
+    public string $deployBlocked = '';
+
+    public string $deployHint = '';
+
+    public string $deployError = '';
+
+    public string $deployRemote = '';
+
+    /**
+     * The order a deploy runs in. Each is a separate request so the browser can
+     * show which one is happening rather than one silent wait.
+     */
+    private const DEPLOY_STEPS = [
+        ['key' => 'pull', 'label' => 'Pulling the latest code'],
+        ['key' => 'migrate', 'label' => 'Running database migrations'],
+        ['key' => 'cache', 'label' => 'Rebuilding caches'],
+    ];
 
     // Access
     public bool $registration_enabled = true;
@@ -212,6 +243,147 @@ new #[Layout('layouts.app')] #[Title('Settings')] class extends Component {
         ];
     }
 
+    /**
+     * Ask the remote what is waiting.
+     */
+    public function checkForUpdates(GitDeployer $deployer): void
+    {
+        $this->authorizeDeploy();
+
+        $support = $deployer->support();
+
+        if (! $support['ok']) {
+            $this->deployBlocked = (string) $support['reason'];
+            $this->deployStatus = [];
+
+            Flux::toast(variant: 'danger', heading: 'Cannot deploy from here', text: $this->deployBlocked);
+
+            return;
+        }
+
+        $this->deployBlocked = '';
+        $this->deployStatus = $deployer->status();
+
+        $this->deployRemote = $deployer->remote();
+
+        if (! $this->deployStatus['ok']) {
+            $this->deployHint = (string) $deployer->diagnose($this->deployStatus['error']);
+            // Shown in full alongside the hint: the hint is an interpretation,
+            // and the reader needs the evidence when it guesses wrong.
+            $this->deployError = str((string) $this->deployStatus['error'])->limit(1500)->toString();
+
+            Flux::toast(
+                variant: 'danger',
+                heading: 'Could not reach the repository',
+                text: str((string) $this->deployStatus['error'])->limit(200)->toString(),
+            );
+
+            return;
+        }
+
+        $this->deployHint = '';
+        $this->deployError = '';
+
+        if ($this->deployStatus['upToDate']) {
+            Flux::toast(
+                variant: 'success',
+                heading: 'Already up to date',
+                text: 'This site is running the latest code on '.$this->deployStatus['branch'].'.',
+            );
+
+            return;
+        }
+
+        Flux::toast(
+            variant: 'warning',
+            heading: 'Updates available',
+            text: $this->deployStatus['behind'].' commit(s) ready to deploy.',
+        );
+    }
+
+    public function startDeploy(): void
+    {
+        $this->authorizeDeploy();
+
+        // Re-checked rather than trusted: the state travelled through the
+        // browser, and this pulls code onto the server.
+        if (($this->deployStatus['upToDate'] ?? true) || ! ($this->deployStatus['ok'] ?? false)) {
+            Flux::toast(variant: 'warning', text: 'Check for updates first.');
+
+            return;
+        }
+
+        $this->deploySteps = array_map(
+            fn (array $step): array => [...$step, 'state' => 'pending', 'output' => ''],
+            self::DEPLOY_STEPS,
+        );
+
+        $this->deployStep = 0;
+        $this->deploying = true;
+    }
+
+    /**
+     * Run one step. Driven by wire:poll while a deploy is in progress.
+     */
+    public function runDeployStep(GitDeployer $deployer): void
+    {
+        $this->authorizeDeploy();
+
+        if (! $this->deploying || ! isset($this->deploySteps[$this->deployStep])) {
+            return;
+        }
+
+        $index = $this->deployStep;
+        $this->deploySteps[$index]['state'] = 'running';
+
+        $result = match ($this->deploySteps[$index]['key']) {
+            'pull' => $deployer->pull((string) ($this->deployStatus['branch'] ?? 'main')),
+            'migrate' => $deployer->migrate(),
+            default => $deployer->refreshCaches(),
+        };
+
+        $this->deploySteps[$index]['output'] = str((string) ($result['output'] ?: $result['error']))->limit(2000)->toString();
+
+        if (! $result['ok']) {
+            $this->deploySteps[$index]['state'] = 'failed';
+            $this->deploying = false;
+            $this->deployHint = (string) $deployer->diagnose($result['error']);
+
+            Flux::toast(
+                variant: 'danger',
+                heading: 'Deployment stopped',
+                text: str((string) $result['error'])->limit(200)->toString(),
+            );
+
+            return;
+        }
+
+        $this->deploySteps[$index]['state'] = 'done';
+        $this->deployStep++;
+
+        if ($this->deployStep < count($this->deploySteps)) {
+            return;
+        }
+
+        $this->deploying = false;
+        $this->deployStatus = $deployer->status();
+
+        Flux::toast(
+            variant: 'success',
+            heading: 'Deployed',
+            text: 'The site is now running the latest code.',
+        );
+    }
+
+    /**
+     * Pulling code and running migrations is the most powerful thing this
+     * dashboard can do, so it is checked here as well as on the route.
+     */
+    private function authorizeDeploy(): void
+    {
+        abort_unless(Gate::allows('manage settings'), 403);
+    }
+
     public function save(): void
     {
         $validated = $this->validate();
@@ -302,7 +474,7 @@ new #[Layout('layouts.app')] #[Title('Settings')] class extends Component {
 
     <div>
         <div class="flex flex-wrap gap-1 border-b border-zinc-200 dark:border-zinc-700" role="tablist">
-            @foreach (['general' => 'cog-6-tooth', 'access' => 'lock-closed', 'mail' => 'envelope', 'analytics' => 'chart-bar', 'integrations' => 'puzzle-piece'] as $name => $icon)
+            @foreach (['general' => 'cog-6-tooth', 'access' => 'lock-closed', 'mail' => 'envelope', 'analytics' => 'chart-bar', 'integrations' => 'puzzle-piece', 'deployment' => 'rocket-launch'] as $name => $icon)
                 <button type="button" wire:click="$set('tab', '{{ $name }}')"
                         role="tab" @aria-selected="$tab === $name ? 'true' : 'false'"
                         @class([
@@ -549,6 +721,130 @@ new #[Layout('layouts.app')] #[Title('Settings')] class extends Component {
                             </flux:callout.text>
                         </flux:callout>
                     @endif
+                </flux:card>
+            </div>
+
+            {{-- Deployment --}}
+            <div class="mt-6" @if($tab !== 'deployment') hidden @endif
+                 @if ($deploying) wire:poll.800ms="runDeployStep" @endif>
+                <flux:card class="space-y-5">
+                    <div>
+                        <flux:heading size="lg">Deploy the latest code</flux:heading>
+                        <flux:text size="sm" class="mt-1">
+                            Pulls from GitHub, runs any new migrations and rebuilds the caches. The site stays
+                            online throughout.
+                        </flux:text>
+                    </div>
+
+                    @if ($deployBlocked)
+                        <flux:callout variant="danger">
+                            <flux:callout.heading>Not available on this server</flux:callout.heading>
+                            <flux:callout.text>{{ $deployBlocked }}</flux:callout.text>
+                        </flux:callout>
+                    @endif
+
+                    @if ($deployHint || $deployError)
+                        <flux:callout variant="warning">
+                            <flux:callout.heading>What went wrong</flux:callout.heading>
+                            <flux:callout.text>
+                                {{ $deployHint ?: 'Git reported a failure. The output is below.' }}
+                            </flux:callout.text>
+                        </flux:callout>
+
+                        @if ($deployError)
+                            <pre class="max-h-40 overflow-auto rounded bg-zinc-900 p-3 font-mono text-[11px] leading-relaxed text-zinc-100">{{ $deployError }}</pre>
+                        @endif
+                    @endif
+
+                    @if ($deployRemote)
+                        <flux:text size="sm">
+                            Remote: <span class="font-mono">{{ $deployRemote }}</span>
+                        </flux:text>
+                    @endif
+
+                    @if (($deployStatus['ok'] ?? false))
+                        <div class="rounded-lg border border-zinc-200 p-4 dark:border-zinc-700">
+                            <div class="flex flex-wrap items-center justify-between gap-2">
+                                <flux:text size="sm">
+                                    Branch <span class="font-mono">{{ $deployStatus['branch'] }}</span>,
+                                    currently at <span class="font-mono">{{ $deployStatus['current'] }}</span>
+                                </flux:text>
+
+                                @if ($deployStatus['upToDate'])
+                                    <flux:badge size="sm" color="lime">Up to date</flux:badge>
+                                @else
+                                    <flux:badge size="sm" color="amber">
+                                        {{ $deployStatus['behind'] }} behind
+                                    </flux:badge>
+                                @endif
+                            </div>
+
+                            @if (! $deployStatus['upToDate'] && filled($deployStatus['commits']))
+                                <ul class="mt-3 space-y-1 border-t border-zinc-200 pt-3 dark:border-zinc-700">
+                                    @foreach ($deployStatus['commits'] as $commit)
+                                        <li class="font-mono text-xs text-zinc-600 dark:text-zinc-400">{{ $commit }}</li>
+                                    @endforeach
+                                </ul>
+                            @endif
+                        </div>
+                    @endif
+
+                    {{-- Progress --}}
+                    @if (filled($deploySteps))
+                        <div class="space-y-2">
+                            @foreach ($deploySteps as $step)
+                                <div @class([
+                                    'rounded-lg border p-3',
+                                    'border-zinc-200 dark:border-zinc-700' => $step['state'] === 'pending',
+                                    'border-brand-400 bg-brand-50/40 dark:bg-brand-900/10' => $step['state'] === 'running',
+                                    'border-lime-400 bg-lime-50/40 dark:bg-lime-900/10' => $step['state'] === 'done',
+                                    'border-red-400 bg-red-50/40 dark:bg-red-900/10' => $step['state'] === 'failed',
+                                ])>
+                                    <div class="flex items-center gap-2 text-sm">
+                                        @if ($step['state'] === 'done')
+                                            <flux:icon.check-circle class="size-4 text-lime-600" />
+                                        @elseif ($step['state'] === 'failed')
+                                            <flux:icon.x-circle class="size-4 text-red-600" />
+                                        @elseif ($step['state'] === 'running')
+                                            <flux:icon.arrow-path class="size-4 animate-spin text-brand-600" />
+                                        @else
+                                            <flux:icon.clock class="size-4 text-zinc-400" />
+                                        @endif
+
+                                        <span @class(['font-medium' => $step['state'] !== 'pending'])>{{ $step['label'] }}</span>
+                                    </div>
+
+                                    @if (filled($step['output']))
+                                        <pre class="mt-2 max-h-40 overflow-auto rounded bg-zinc-900 p-2 font-mono text-[11px] leading-relaxed text-zinc-100">{{ $step['output'] }}</pre>
+                                    @endif
+                                </div>
+                            @endforeach
+                        </div>
+                    @endif
+
+                    <div class="flex flex-wrap gap-3">
+                        <flux:button type="button" variant="ghost" icon="arrow-path"
+                                     wire:click="checkForUpdates" :disabled="$deploying">
+                            <span wire:loading.remove wire:target="checkForUpdates">Check for updates</span>
+                            <span wire:loading wire:target="checkForUpdates">Checking…</span>
+                        </flux:button>
+
+                        @if (($deployStatus['ok'] ?? false) && ! $deployStatus['upToDate'])
+                            <flux:button type="button" variant="primary" icon="rocket-launch"
+                                         wire:click="startDeploy" :disabled="$deploying">
+                                {{ $deploying ? 'Deploying…' : 'Pull and deploy' }}
+                            </flux:button>
+                        @endif
+                    </div>
+
+                    <flux:callout variant="secondary">
+                        <flux:callout.text>
+                            Config is cleared rather than cached. Caching it would write the mail password and the
+                            Google service-account key to a file in plaintext, which is the thing encrypting them
+                            in the database was meant to prevent. Routes and views are still cached, which is where
+                            most of the speed comes from.
+                        </flux:callout.text>
+                    </flux:callout>
                 </flux:card>
             </div>
 
