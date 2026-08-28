@@ -211,7 +211,7 @@ new #[Layout('layouts.app')] #[Title('Moderation')] class extends Component {
                     <flux:separator class="my-5" />
 
                     {{-- Sanitized on the way in by ArticleHtml, same as the public page. --}}
-                    <div class="prose prose-sm dark:prose-invert max-w-none">{!! $post->body !!}</div>
+                    <div class="article-body">{!! $post->body !!}</div>
 
                     @if ($post->reviewed_at)
                         <flux:callout variant="secondary" class="mt-5">

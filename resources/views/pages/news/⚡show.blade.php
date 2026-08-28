@@ -89,12 +89,7 @@ new #[Layout('layouts.site')] class extends Component {
             Tailwind typography plugin is not installed, which left the earlier
             "prose" classes doing nothing.
         --}}
-        <div class="mt-8 text-base leading-relaxed text-zinc-700 dark:text-zinc-300
-                    [&_blockquote]:my-6 [&_blockquote]:border-l-4 [&_blockquote]:border-brand-600 [&_blockquote]:pl-4 [&_blockquote]:text-zinc-600 [&_blockquote]:italic dark:[&_blockquote]:text-zinc-400
-                    [&_h3]:mt-8 [&_h3]:mb-3 [&_h3]:text-2xl [&_h3]:font-bold [&_h3]:tracking-tight [&_h3]:text-zinc-900 dark:[&_h3]:text-zinc-100
-                    [&_h4]:mt-8 [&_h4]:mb-3 [&_h4]:text-xl [&_h4]:font-bold [&_h4]:tracking-tight [&_h4]:text-zinc-900 dark:[&_h4]:text-zinc-100
-                    [&_h5]:mt-6 [&_h5]:mb-2 [&_h5]:text-lg [&_h5]:font-semibold [&_h5]:text-zinc-900 dark:[&_h5]:text-zinc-100
-                    [&_li]:mb-1 [&_ol]:my-4 [&_ol]:list-decimal [&_ol]:ps-6 [&_p]:mb-5 [&_strong]:font-semibold [&_strong]:text-zinc-900 [&_ul]:my-4 [&_ul]:list-disc [&_ul]:ps-6 dark:[&_strong]:text-zinc-100">
+        <div class="article-body mt-8">
             {!! $post->body !!}
         </div>
 

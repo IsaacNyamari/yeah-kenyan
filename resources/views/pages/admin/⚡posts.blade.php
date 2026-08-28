@@ -286,7 +286,8 @@ new #[Layout('layouts.app')] #[Title('Manage News')] class extends Component {
                     <flux:textarea wire:model="excerpt" label="Excerpt" rows="3"
                                    placeholder="Short summary shown on cards" />
 
-                    <flux:textarea wire:model="body" label="Body" rows="10" required />
+                    <x-admin.rich-text model="body" label="Body"
+                        description="Headings, lists, quotes and links. Anything else is removed when you save." />
 
                     <x-admin.image-field
                         label="Cover image"

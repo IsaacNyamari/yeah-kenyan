@@ -214,8 +214,8 @@ new #[Layout('layouts.app')] #[Title('Newsletters')] class extends Component {
                     @endforeach
                 </flux:select>
 
-                <flux:textarea wire:model.live.debounce.600ms="body" label="Body" rows="14"
-                               description="Paragraphs, headings, lists, bold and italics. Anything else is stripped." />
+                <x-admin.rich-text model="body" label="Body" :live="true"
+                    description="Headings, lists, quotes and links. The preview follows along." />
 
                 <div class="flex gap-3">
                     <flux:button type="submit" variant="primary">

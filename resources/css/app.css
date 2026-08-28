@@ -163,3 +163,62 @@ select:focus[data-flux-control] {
         transition-duration: 1ms;
     }
 }
+
+/* ---------------------------------------------------------------------------
+   Article and newsletter body
+
+   The Tailwind typography plugin is not installed, so rendered article HTML is
+   styled per element here rather than with "prose" — which was silently doing
+   nothing wherever it appeared. Written with @apply so the editor, the
+   moderation preview and the public page cannot drift apart: what an author
+   sees while writing is what a reader gets.
+--------------------------------------------------------------------------- */
+
+.article-body {
+    @apply text-base leading-relaxed text-zinc-700 dark:text-zinc-300;
+}
+
+.article-body p {
+    @apply mb-5;
+}
+
+.article-body h3 {
+    @apply mt-8 mb-3 text-2xl font-bold tracking-tight text-zinc-900 dark:text-zinc-100;
+}
+
+.article-body h4 {
+    @apply mt-8 mb-3 text-xl font-bold tracking-tight text-zinc-900 dark:text-zinc-100;
+}
+
+.article-body h5 {
+    @apply mt-6 mb-2 text-lg font-semibold text-zinc-900 dark:text-zinc-100;
+}
+
+.article-body ul {
+    @apply my-4 list-disc ps-6;
+}
+
+.article-body ol {
+    @apply my-4 list-decimal ps-6;
+}
+
+.article-body li {
+    @apply mb-1;
+}
+
+.article-body blockquote {
+    @apply my-6 border-l-4 border-brand-600 pl-4 text-zinc-600 italic dark:text-zinc-400;
+}
+
+.article-body strong {
+    @apply font-semibold text-zinc-900 dark:text-zinc-100;
+}
+
+.article-body a {
+    @apply text-brand-600 underline underline-offset-2 hover:text-brand-700;
+}
+
+/* The editor writes into this element, so it needs room before anything is typed. */
+.article-body:focus {
+    @apply outline-hidden;
+}
