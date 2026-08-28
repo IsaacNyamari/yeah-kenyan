@@ -46,7 +46,7 @@ it('follows the setting when the zone changes', function (string $zone, string $
 ]);
 
 it('saves the timezone from the settings screen', function () {
-    $this->actingAs(User::factory()->create(['is_admin' => true]));
+    $this->actingAs(User::factory()->admin()->create());
 
     Livewire::test('pages::admin.settings')
         ->set('site_name', 'Yeah Kenyan')
@@ -59,7 +59,7 @@ it('saves the timezone from the settings screen', function () {
 });
 
 it('rejects a timezone that does not exist', function () {
-    $this->actingAs(User::factory()->create(['is_admin' => true]));
+    $this->actingAs(User::factory()->admin()->create());
 
     Livewire::test('pages::admin.settings')
         ->set('site_name', 'Yeah Kenyan')
@@ -70,7 +70,7 @@ it('rejects a timezone that does not exist', function () {
 });
 
 it('offers every iana zone grouped by region, africa first', function () {
-    $this->actingAs(User::factory()->create(['is_admin' => true]));
+    $this->actingAs(User::factory()->admin()->create());
 
     $zones = Livewire::test('pages::admin.settings')->get('timezones');
 

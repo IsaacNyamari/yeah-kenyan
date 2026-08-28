@@ -71,6 +71,11 @@
                         {{ __('Analytics') }}
                     </flux:sidebar.item>
 
+                    <flux:sidebar.item icon="users" :href="route('admin.users')"
+                        :current="request()->routeIs('admin.users')" wire:navigate>
+                        {{ __('User Roles') }}
+                    </flux:sidebar.item>
+
                     <flux:sidebar.item icon="wrench-screwdriver" :href="route('admin.settings')"
                         :current="request()->routeIs('admin.settings')" wire:navigate>
                         {{ __('Settings') }}

@@ -8,37 +8,37 @@ it('redirects guests to the login screen', function () {
 });
 
 it('forbids a signed-in user who is not an administrator', function () {
-    $this->actingAs(User::factory()->create(['is_admin' => false]));
+    $this->actingAs(User::factory()->create());
 
     $this->get(route('admin.analytics'))->assertForbidden();
 });
 
 it('allows an administrator through', function () {
-    $this->actingAs(User::factory()->create(['is_admin' => true]));
+    $this->actingAs(User::factory()->admin()->create());
 
     $this->get(route('admin.analytics'))->assertOk();
 });
 
 it('leaves the rest of the cms open to any signed-in user', function (string $route) {
-    $this->actingAs(User::factory()->create(['is_admin' => false]));
+    $this->actingAs(User::factory()->create());
 
     $this->get(route($route))->assertOk();
 })->with(['dashboard', 'admin.posts', 'admin.services', 'admin.messages']);
 
 it('shows the analytics link in the sidebar only for administrators', function () {
-    $this->actingAs(User::factory()->create(['is_admin' => true]));
+    $this->actingAs(User::factory()->admin()->create());
     $this->get(route('dashboard'))->assertOk()->assertSee(route('admin.analytics'));
 
     auth()->logout();
 
-    $this->actingAs(User::factory()->create(['is_admin' => false]));
+    $this->actingAs(User::factory()->create());
     $this->get(route('dashboard'))->assertOk()->assertDontSee(route('admin.analytics'));
 });
 
 it('renders a setup guide instead of failing when google analytics is unconfigured', function () {
     config(['analytics.property_id' => null]);
 
-    $this->actingAs(User::factory()->create(['is_admin' => true]));
+    $this->actingAs(User::factory()->admin()->create());
 
     $this->get(route('admin.analytics'))
         ->assertOk()

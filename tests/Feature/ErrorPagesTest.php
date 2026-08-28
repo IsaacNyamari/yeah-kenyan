@@ -22,7 +22,7 @@ it('serves a branded 404 for an unknown url', function () {
 });
 
 it('serves a branded 403 when a non-admin opens analytics', function () {
-    $this->actingAs(User::factory()->create(['is_admin' => false]));
+    $this->actingAs(User::factory()->create());
 
     $this->get(route('admin.analytics'))
         ->assertForbidden()
@@ -31,7 +31,7 @@ it('serves a branded 403 when a non-admin opens analytics', function () {
 });
 
 it('surfaces the reason on a 403 when one was given', function () {
-    $this->actingAs(User::factory()->create(['is_admin' => false]));
+    $this->actingAs(User::factory()->create());
 
     $this->get(route('admin.analytics'))
         ->assertForbidden()

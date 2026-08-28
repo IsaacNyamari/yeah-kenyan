@@ -7,17 +7,17 @@ use Illuminate\Support\Facades\Crypt;
 use Livewire\Livewire;
 
 beforeEach(function () {
-    $this->actingAs(User::factory()->create(['is_admin' => true]));
+    $this->actingAs(User::factory()->admin()->create());
 });
 
 it('is restricted to administrators', function () {
     auth()->logout();
     $this->get(route('admin.settings'))->assertRedirect(route('login'));
 
-    $this->actingAs(User::factory()->create(['is_admin' => false]));
+    $this->actingAs(User::factory()->create());
     $this->get(route('admin.settings'))->assertForbidden();
 
-    $this->actingAs(User::factory()->create(['is_admin' => true]));
+    $this->actingAs(User::factory()->admin()->create());
     $this->get(route('admin.settings'))->assertOk();
 });
 

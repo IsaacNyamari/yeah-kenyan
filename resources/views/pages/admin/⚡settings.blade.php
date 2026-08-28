@@ -50,6 +50,11 @@ new #[Layout('layouts.app')] #[Title('Settings')] class extends Component {
 
     public string $analytics_measurement_id = '';
 
+    // Access
+    public bool $registration_enabled = true;
+
+    public bool $posting_enabled = true;
+
     // Integrations
     public bool $tawk_enabled = false;
 
@@ -86,6 +91,8 @@ new #[Layout('layouts.app')] #[Title('Settings')] class extends Component {
             }
         }
 
+        $this->registration_enabled = Setting::boolean('registration_enabled', true);
+        $this->posting_enabled = Setting::boolean('posting_enabled', true);
         $this->tawk_enabled = Setting::boolean('tawk_enabled');
         $this->nyt_enabled = Setting::boolean('nyt_enabled');
         $this->analytics_tracking_enabled = Setting::boolean('analytics_tracking_enabled');
@@ -214,6 +221,8 @@ new #[Layout('layouts.app')] #[Title('Settings')] class extends Component {
             ->reject(fn ($value, $key): bool => in_array($key, Setting::SECRETS, true) && blank($value))
             ->all();
 
+        $values['registration_enabled'] = $this->registration_enabled;
+        $values['posting_enabled'] = $this->posting_enabled;
         $values['tawk_enabled'] = $this->tawk_enabled;
         $values['nyt_enabled'] = $this->nyt_enabled;
         $values['analytics_tracking_enabled'] = $this->analytics_tracking_enabled;
@@ -293,7 +302,7 @@ new #[Layout('layouts.app')] #[Title('Settings')] class extends Component {
 
     <div>
         <div class="flex flex-wrap gap-1 border-b border-zinc-200 dark:border-zinc-700" role="tablist">
-            @foreach (['general' => 'cog-6-tooth', 'mail' => 'envelope', 'analytics' => 'chart-bar', 'integrations' => 'puzzle-piece'] as $name => $icon)
+            @foreach (['general' => 'cog-6-tooth', 'access' => 'lock-closed', 'mail' => 'envelope', 'analytics' => 'chart-bar', 'integrations' => 'puzzle-piece'] as $name => $icon)
                 <button type="button" wire:click="$set('tab', '{{ $name }}')"
                         role="tab" @aria-selected="$tab === $name ? 'true' : 'false'"
                         @class([
@@ -342,6 +351,42 @@ new #[Layout('layouts.app')] #[Title('Settings')] class extends Component {
             </div>
 
             {{-- Mail --}}
+            {{-- Access --}}
+            <div class="mt-6" @if($tab !== 'access') hidden @endif>
+                <flux:card class="space-y-5">
+                    <flux:heading size="lg">Who can join and publish</flux:heading>
+
+                    <flux:field variant="inline">
+                        <flux:checkbox wire:model="registration_enabled" />
+                        <flux:label>Allow new accounts to register</flux:label>
+                        <flux:description>
+                            Closing this hides the sign-up link and turns away the sign-up form and the endpoint
+                            behind it. Existing accounts keep working, and you can still appoint people from
+                            <a href="{{ route('admin.users') }}" class="underline" wire:navigate>User roles</a>.
+                        </flux:description>
+                    </flux:field>
+
+                    <flux:separator />
+
+                    <flux:field variant="inline">
+                        <flux:checkbox wire:model="posting_enabled" />
+                        <flux:label>Allow authors and moderators to post</flux:label>
+                        <flux:description>
+                            Switch this off to freeze the newsroom while you catch up on review. Administrators can
+                            still post, so the site is never left without a way to publish.
+                        </flux:description>
+                    </flux:field>
+
+                    <flux:callout variant="secondary">
+                        <flux:callout.text>
+                            Everyone who registers becomes an author, and an author's articles go to a moderator
+                            before they appear on the site. Moderator and administrator are only ever granted from
+                            the User roles screen.
+                        </flux:callout.text>
+                    </flux:callout>
+                </flux:card>
+            </div>
+
             <div class="mt-6" @if($tab !== 'mail') hidden @endif>
                 <flux:card class="space-y-5">
                     <flux:heading size="lg">Mail server</flux:heading>

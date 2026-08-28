@@ -68,13 +68,13 @@ it('tracks the public site', function () {
 });
 
 it('does not track the admin area', function () {
-    $this->actingAs(User::factory()->create(['is_admin' => true]));
+    $this->actingAs(User::factory()->admin()->create());
 
     $this->get(route('dashboard'))->assertOk()->assertDontSee('googletagmanager', escape: false);
 });
 
 it('rejects a measurement id that is not in the G- format', function () {
-    $this->actingAs(User::factory()->create(['is_admin' => true]));
+    $this->actingAs(User::factory()->admin()->create());
 
     Livewire\Livewire::test('pages::admin.settings')
         ->set('site_name', 'Yeah Kenyan')
@@ -85,7 +85,7 @@ it('rejects a measurement id that is not in the G- format', function () {
 });
 
 it('keeps the measurement id and the reporting property id apart', function () {
-    $this->actingAs(User::factory()->create(['is_admin' => true]));
+    $this->actingAs(User::factory()->admin()->create());
 
     Livewire\Livewire::test('pages::admin.settings')
         ->set('site_name', 'Yeah Kenyan')

@@ -21,6 +21,11 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::livewire('admin/messages', 'pages::admin.messages')->name('admin.messages');
     Route::livewire('admin/contact', 'pages::admin.contact')->name('admin.contact');
 
+    // Roles decide what everyone else may do, so administrators only.
+    Route::livewire('admin/users', 'pages::admin.users')
+        ->middleware('admin')
+        ->name('admin.users');
+
     // Credentials live here, so administrators only.
     Route::livewire('admin/settings', 'pages::admin.settings')
         ->middleware('admin')

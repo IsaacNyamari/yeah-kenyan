@@ -118,10 +118,12 @@
                            class="rounded-lg px-3 py-2 text-sm font-medium transition hover:text-brand-400">
                             Log in
                         </a>
-                        <a href="{{ route('register') }}"
-                           class="rounded-lg bg-brand-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-brand-700">
-                            Sign up
-                        </a>
+                        @if (\App\Models\Setting::boolean('registration_enabled', true))
+                            <a href="{{ route('register') }}"
+                               class="rounded-lg bg-brand-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-brand-700">
+                                Sign up
+                            </a>
+                        @endif
                     </div>
                 @endauth
             </div>
@@ -172,10 +174,12 @@
                                class="flex-1 rounded-lg border border-zinc-700 px-4 py-2.5 text-center text-sm font-medium">
                                 Log in
                             </a>
-                            <a href="{{ route('register') }}"
-                               class="flex-1 rounded-lg bg-brand-600 px-4 py-2.5 text-center text-sm font-semibold text-white">
-                                Sign up
-                            </a>
+                            @if (\App\Models\Setting::boolean('registration_enabled', true))
+                                <a href="{{ route('register') }}"
+                                   class="flex-1 rounded-lg bg-brand-600 px-4 py-2.5 text-center text-sm font-semibold text-white">
+                                    Sign up
+                                </a>
+                            @endif
                         </div>
                     @endauth
                 </div>
