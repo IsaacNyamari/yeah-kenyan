@@ -173,3 +173,123 @@ document.addEventListener('alpine:init', () => {
         }
     })
 })
+
+/**
+ * The deploy panel.
+ *
+ * Driven with plain fetch rather than Livewire on purpose: a deploy replaces
+ * the application's code midway, and a Livewire page held open across that
+ * change would send the next request with a snapshot the new code cannot
+ * hydrate. Ordinary requests carry no such state.
+ */
+document.addEventListener('alpine:init', () => {
+    window.Alpine.data('deployPanel', (config) => ({
+        checking: false,
+        running: false,
+        blocked: '',
+        error: '',
+        hint: '',
+        status: null,
+        steps: [],
+
+        async check() {
+            this.checking = true
+            this.reset()
+
+            try {
+                const data = await this.post(config.checkUrl)
+
+                this.blocked = data.blocked || ''
+                this.status = data.blocked ? null : data
+                this.error = data.error || ''
+                this.hint = data.hint || ''
+            } catch (e) {
+                this.error = e.message
+            } finally {
+                this.checking = false
+            }
+        },
+
+        async start() {
+            if (!this.status || this.status.upToDate) {
+                return
+            }
+
+            this.running = true
+            this.error = ''
+            this.hint = ''
+            this.steps = [
+                { key: 'pull', label: 'Pulling the latest code', state: 'pending', output: '' },
+                { key: 'migrate', label: 'Running database migrations', state: 'pending', output: '' },
+                { key: 'assets', label: 'Publishing assets to the web root', state: 'pending', output: '' },
+                { key: 'cache', label: 'Rebuilding caches', state: 'pending', output: '' },
+            ]
+
+            for (const step of this.steps) {
+                step.state = 'running'
+
+                try {
+                    const data = await this.post(
+                        config.stepUrl.replace('__step__', step.key),
+                        { branch: this.status.branch },
+                    )
+
+                    step.output = data.output || data.error || ''
+
+                    if (!data.ok) {
+                        step.state = 'failed'
+                        this.error = data.error || 'The step failed.'
+                        this.hint = data.hint || ''
+                        this.running = false
+
+                        return
+                    }
+
+                    step.state = 'done'
+                } catch (e) {
+                    step.state = 'failed'
+                    this.error = e.message
+                    this.running = false
+
+                    return
+                }
+            }
+
+            this.running = false
+            this.done = true
+
+            // The page was rendered by the code that has just been replaced, so
+            // it is reloaded rather than left describing a version that is no
+            // longer running.
+            setTimeout(() => window.location.reload(), 1500)
+        },
+
+        done: false,
+
+        reset() {
+            this.blocked = ''
+            this.error = ''
+            this.hint = ''
+            this.steps = []
+            this.done = false
+        },
+
+        async post(url, body = {}) {
+            const response = await fetch(url, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    Accept: 'application/json',
+                    'X-CSRF-TOKEN': config.token,
+                },
+                body: JSON.stringify(body),
+            })
+
+            if (!response.ok) {
+                throw new Error(`The server answered ${response.status}. Check the Laravel log for the reason.`)
+            }
+
+            return response.json()
+        },
+    }))
+})

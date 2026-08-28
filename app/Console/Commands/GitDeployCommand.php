@@ -83,6 +83,15 @@ class GitDeployCommand extends Command
             $this->line($migrate['output']);
         }
 
+        $this->info('Publishing assets…');
+        $assets = $deployer->publishAssets();
+
+        if (! $assets['ok']) {
+            $this->error('Could not publish assets: '.$assets['error']);
+        } else {
+            $this->line($assets['output']);
+        }
+
         $this->info('Rebuilding caches…');
         $caches = $deployer->refreshCaches();
 

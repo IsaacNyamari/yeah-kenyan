@@ -5,13 +5,16 @@ use App\Services\AppVersion;
 use App\Services\GitDeployer;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\File;
-use Livewire\Livewire;
 
 /*
- * The deploy button pulls code onto the server and runs migrations, so most of
- * what matters here is who may press it and what happens when a step fails.
- * A fake deployer stands in for git: these tests must not touch the network or
- * the working tree.
+ * The deploy pulls code onto the server and runs migrations, so most of what
+ * matters here is who may trigger it and what happens when a step fails.
+ *
+ * It runs over ordinary JSON endpoints rather than Livewire: the code changes
+ * underneath the open page, and a Livewire snapshot produced by the previous
+ * version cannot hydrate against the new one. These tests drive those
+ * endpoints. A fake deployer stands in for git — nothing here may touch the
+ * network or the working tree.
  */
 
 /**
@@ -36,13 +39,19 @@ function fakeDeployer(array $overrides = []): GitDeployer
         {
             return $this->behaviour['status'] ?? [
                 'ok' => true, 'branch' => 'main', 'behind' => 0, 'upToDate' => true,
-                'commits' => [], 'current' => 'abc1234 latest', 'error' => null,
+                'commits' => [], 'current' => 'abc1234 latest',
+                'installedVersion' => '1.0.0', 'latestVersion' => '1.0.0', 'error' => null,
             ];
+        }
+
+        public function remote(): string
+        {
+            return 'git@github.com:example/example.git';
         }
 
         public function pull(string $branch = 'main'): array
         {
-            $this->called[] = 'pull';
+            $this->called[] = 'pull:'.$branch;
 
             return $this->behaviour['pull'] ?? ['ok' => true, 'output' => 'Updated 3 files', 'error' => null];
         }
@@ -52,6 +61,13 @@ function fakeDeployer(array $overrides = []): GitDeployer
             $this->called[] = 'migrate';
 
             return $this->behaviour['migrate'] ?? ['ok' => true, 'output' => 'Nothing to migrate.', 'error' => null];
+        }
+
+        public function publishAssets(): array
+        {
+            $this->called[] = 'assets';
+
+            return $this->behaviour['assets'] ?? ['ok' => true, 'output' => 'Published 4 file(s)', 'error' => null];
         }
 
         public function refreshCaches(): array
@@ -72,12 +88,13 @@ function fakeDeployer(array $overrides = []): GitDeployer
 /**
  * @return array<string, mixed>
  */
-function behindStatus(int $behind = 2): array
+function behindStatus(int $behind = 2, ?string $latestVersion = null): array
 {
     return [
         'ok' => true, 'branch' => 'main', 'behind' => $behind, 'upToDate' => false,
         'commits' => ['abc1234  Add a thing  (Isaac, 1 hour ago)'],
-        'current' => 'def5678  the previous one', 'error' => null,
+        'current' => 'def5678  the previous one',
+        'installedVersion' => '1.0.0', 'latestVersion' => $latestVersion, 'error' => null,
     ];
 }
 
@@ -85,123 +102,112 @@ beforeEach(function () {
     $this->actingAs(User::factory()->admin()->create());
 });
 
-it('keeps the deploy controls to accounts that manage settings', function () {
+it('keeps the deploy endpoints to accounts that manage settings', function () {
     foreach ([User::factory()->create(), User::factory()->moderator()->create()] as $account) {
         $this->actingAs($account);
-        $this->get(route('admin.settings'))->assertForbidden();
+
+        $this->postJson(route('admin.deploy.check'))->assertForbidden();
+        $this->postJson(route('admin.deploy.step', ['step' => 'pull']))->assertForbidden();
     }
 });
 
-it('refuses a deploy action from an account without the permission', function () {
-    fakeDeployer();
+it('refuses the deploy endpoints to a guest', function () {
+    auth()->logout();
 
-    // Livewire re-applies the route middleware, and the component checks again
-    // on its own: this pulls code onto the server.
-    $this->actingAs(User::factory()->create());
-
-    Livewire::test('pages::admin.settings')
-        ->call('checkForUpdates')
-        ->assertForbidden();
+    $this->postJson(route('admin.deploy.check'))->assertUnauthorized();
 });
 
 it('says so when the site is already up to date', function () {
     fakeDeployer();
 
-    Livewire::test('pages::admin.settings')
-        ->call('checkForUpdates')
-        ->assertSet('deployStatus.upToDate', true)
-        ->assertSet('deployBlocked', '');
+    $this->postJson(route('admin.deploy.check'))
+        ->assertOk()
+        ->assertJson(['ok' => true, 'upToDate' => true, 'blocked' => null]);
 });
 
 it('lists the commits waiting to be deployed', function () {
     fakeDeployer(['status' => behindStatus(2)]);
 
-    Livewire::test('pages::admin.settings')
-        ->call('checkForUpdates')
-        ->assertSet('deployStatus.behind', 2)
-        ->assertSee('Add a thing');
+    $this->postJson(route('admin.deploy.check'))
+        ->assertOk()
+        ->assertJson(['behind' => 2, 'upToDate' => false])
+        ->assertJsonFragment(['abc1234  Add a thing  (Isaac, 1 hour ago)']);
 });
 
 it('reports a server that cannot run git rather than failing silently', function () {
     fakeDeployer(['support' => ['ok' => false, 'reason' => 'proc_open is disabled.']]);
 
-    Livewire::test('pages::admin.settings')
-        ->call('checkForUpdates')
-        ->assertSet('deployBlocked', 'proc_open is disabled.')
-        ->assertSet('deployStatus', []);
+    $this->postJson(route('admin.deploy.check'))
+        ->assertOk()
+        ->assertJson(['ok' => false, 'blocked' => 'proc_open is disabled.']);
 });
 
-it('will not deploy without checking first', function () {
-    // The status travelled through the browser, so it is re-checked before
-    // anything is pulled onto the server.
+it('flags an update when the published release is newer', function () {
+    fakeDeployer(['status' => behindStatus(1, '99.0.0')]);
+
+    $this->postJson(route('admin.deploy.check'))
+        ->assertOk()
+        ->assertJson(['releaseAvailable' => true, 'latestVersion' => '99.0.0']);
+});
+
+it('does not flag an update for an older or unversioned tag', function () {
+    fakeDeployer(['status' => behindStatus(1, '0.0.1')]);
+    $this->postJson(route('admin.deploy.check'))->assertJson(['releaseAvailable' => false]);
+
+    // The repository carries a tag named after the project rather than a
+    // version, which cannot be ordered against anything.
+    fakeDeployer(['status' => behindStatus(1, 'yeah_keanyan')]);
+    $this->postJson(route('admin.deploy.check'))->assertJson(['releaseAvailable' => false]);
+});
+
+it('runs each step on request', function () {
     $fake = fakeDeployer();
 
-    Livewire::test('pages::admin.settings')
-        ->call('startDeploy')
-        ->assertSet('deploying', false);
-
-    expect($fake->called)->toBe([]);
-});
-
-it('will not deploy when there is nothing to pull', function () {
-    $fake = fakeDeployer();
-
-    Livewire::test('pages::admin.settings')
-        ->call('checkForUpdates')
-        ->call('startDeploy')
-        ->assertSet('deploying', false);
-
-    expect($fake->called)->toBe([]);
-});
-
-it('runs pull, migrate and cache in that order', function () {
-    $fake = fakeDeployer(['status' => behindStatus()]);
-
-    $component = Livewire::test('pages::admin.settings')
-        ->call('checkForUpdates')
-        ->call('startDeploy')
-        ->assertSet('deploying', true);
-
-    // The browser drives one step per poll.
-    $component->call('runDeployStep')
-        ->call('runDeployStep')
-        ->call('runDeployStep')
-        ->assertSet('deploying', false);
-
-    expect($fake->called)->toBe(['pull', 'migrate', 'cache']);
-});
-
-it('stops at a failed step and leaves the rest unrun', function () {
-    $fake = fakeDeployer([
-        'status' => behindStatus(),
-        'pull' => ['ok' => false, 'output' => '', 'error' => 'Your local changes would be overwritten'],
-    ]);
-
-    Livewire::test('pages::admin.settings')
-        ->call('checkForUpdates')
-        ->call('startDeploy')
-        ->call('runDeployStep')
-        ->assertSet('deploying', false)
-        ->assertSet('deploySteps.0.state', 'failed')
-        ->assertSet('deploySteps.1.state', 'pending')
-        ->assertSee('Your local changes would be overwritten');
-
-    expect($fake->called)->toBe(['pull']);
-});
-
-it('ignores a poll once the deploy has finished', function () {
-    $fake = fakeDeployer(['status' => behindStatus()]);
-
-    $component = Livewire::test('pages::admin.settings')
-        ->call('checkForUpdates')
-        ->call('startDeploy');
-
-    foreach (range(1, 6) as $ignored) {
-        $component->call('runDeployStep');
+    foreach (['pull', 'migrate', 'assets', 'cache'] as $step) {
+        $this->postJson(route('admin.deploy.step', ['step' => $step]), ['branch' => 'main'])
+            ->assertOk()
+            ->assertJson(['ok' => true]);
     }
 
-    // Three steps, three calls, no matter how many polls arrive.
-    expect($fake->called)->toBe(['pull', 'migrate', 'cache']);
+    expect($fake->called)->toBe(['pull:main', 'migrate', 'assets', 'cache']);
+});
+
+it('reports a failed step with the reason and an explanation', function () {
+    fakeDeployer([
+        'pull' => ['ok' => false, 'output' => '', 'error' => 'error: Your local changes would be overwritten'],
+    ]);
+
+    $this->postJson(route('admin.deploy.step', ['step' => 'pull']))
+        ->assertOk()
+        ->assertJson(['ok' => false])
+        ->assertJsonPath('error', 'error: Your local changes would be overwritten')
+        ->assertJsonPath('hint', fn (?string $hint): bool => str_contains((string) $hint, 'edited directly on the server'));
+});
+
+it('refuses a step it does not recognise', function () {
+    fakeDeployer();
+
+    $this->postJson('/admin/deploy/step/rm-rf')->assertNotFound();
+});
+
+it('will not hand an arbitrary branch name to git', function () {
+    // The branch arrives from the browser, so it is checked rather than passed
+    // straight through as a command argument.
+    $fake = fakeDeployer();
+
+    $this->postJson(route('admin.deploy.step', ['step' => 'pull']), ['branch' => 'main; rm -rf /'])
+        ->assertOk();
+
+    expect($fake->called)->toBe(['pull:main']);
+});
+
+it('leaves the assets alone when the web root is the repository', function () {
+    // The local layout: public/ is the web root, so there is nowhere to copy to
+    // and copying onto itself would be the only way to get it wrong.
+    $result = app(GitDeployer::class)->publishAssets();
+
+    expect($result['ok'])->toBeTrue()
+        ->and($result['output'])->toContain('nothing to copy');
 });
 
 it('clears the cached config instead of building one', function () {
@@ -216,11 +222,10 @@ it('clears the cached config instead of building one', function () {
 
         expect(File::exists($cached))->toBeFalse();
     } finally {
-        // This one runs the real artisan commands, which cache routes and
-        // views in the working copy. Left behind, they serve stale routes to
-        // whoever runs the suite next.
+        // This runs the real artisan commands, which cache routes in the
+        // working copy. Left behind, they serve stale routes to whoever runs
+        // the suite next.
         Artisan::call('route:clear');
-        Artisan::call('view:clear');
     }
 });
 
@@ -261,18 +266,10 @@ it('hands git the full parent environment', function () {
     'Needs a git checkout and proc_open.',
 );
 
-it('reports a server with no repository', function () {
-    // The real check, not the fake: a site uploaded by FTP has no .git.
-    $support = app(GitDeployer::class)->support();
-
-    expect($support)->toHaveKeys(['ok', 'reason']);
-});
-
 it('explains an ssh failure as a hosting limitation, not a mystery', function () {
-    // The exact error a jailed shared-hosting PHP process produces.
-    $deployer = app(GitDeployer::class);
-
-    $hint = $deployer->diagnose('ssh: Could not resolve hostname github.com: Non-recoverable failure in name resolution');
+    $hint = app(GitDeployer::class)->diagnose(
+        'ssh: Could not resolve hostname github.com: Non-recoverable failure in name resolution',
+    );
 
     expect($hint)->toBeString()->toContain('HTTPS');
 });
@@ -286,29 +283,8 @@ it('explains a refused key and a rejected token differently', function () {
         ->toContain('access token');
 });
 
-it('explains a refusal to overwrite files edited on the server', function () {
-    $deployer = app(GitDeployer::class);
-
-    expect($deployer->diagnose('error: Your local changes to the following files would be overwritten by merge'))
-        ->toContain('edited directly on the server');
-});
-
 it('offers no explanation for a failure it does not recognise', function () {
     // Better a raw message than a confidently wrong one.
     expect(app(GitDeployer::class)->diagnose('something nobody has seen before'))->toBeNull()
         ->and(app(GitDeployer::class)->diagnose(null))->toBeNull();
-});
-
-it('shows the explanation when a check fails', function () {
-    fakeDeployer([
-        'status' => [
-            'ok' => false, 'branch' => 'main', 'behind' => 0, 'upToDate' => false,
-            'commits' => [], 'current' => '',
-            'error' => 'ssh: Could not resolve hostname github.com',
-        ],
-    ]);
-
-    Livewire::test('pages::admin.settings')
-        ->call('checkForUpdates')
-        ->assertSee('What went wrong');
 });

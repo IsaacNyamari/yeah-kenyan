@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\DeploymentController;
 use App\Models\User;
 use App\Services\Impersonator;
 use Illuminate\Support\Facades\Route;
@@ -94,6 +95,20 @@ Route::middleware(['auth', 'verified'])->group(function () {
             ? redirect()->route('admin.users')
             : redirect()->route('dashboard');
     })->name('impersonate.stop');
+
+    /*
+     * Deploying is driven by ordinary requests rather than Livewire: the code
+     * changes underneath the open page, and a Livewire snapshot from the
+     * previous version would fail to hydrate against the new one.
+     */
+    Route::post('admin/deploy/check', [DeploymentController::class, 'check'])
+        ->middleware('can:manage settings')
+        ->name('admin.deploy.check');
+
+    Route::post('admin/deploy/step/{step}', [DeploymentController::class, 'step'])
+        ->whereIn('step', ['pull', 'migrate', 'assets', 'cache'])
+        ->middleware('can:manage settings')
+        ->name('admin.deploy.step');
 
     Route::livewire('admin/settings', 'pages::admin.settings')
         ->middleware('can:manage settings')

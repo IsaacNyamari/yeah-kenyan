@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use Illuminate\Support\Facades\Artisan;
+use Illuminate\Support\Facades\File;
 use Symfony\Component\Process\Process;
 
 /**
@@ -46,7 +47,7 @@ class GitDeployer
             ];
         }
 
-        $git = $this->run(['git', '--version'], timeout: 15);
+        $git = $this->run(['git', '--version'], timeout: 10);
 
         if (! $git['ok']) {
             return [
@@ -80,9 +81,10 @@ class GitDeployer
 
         $name = trim($branch['output']);
 
-        // Fetch before comparing, or "behind" only reflects whatever the last
-        // fetch happened to see.
-        $fetch = $this->run(['git', 'fetch', 'origin', $name]);
+        // One network call for both questions: --tags brings the release tags
+        // down with the branch, so latestRelease() can read them locally instead
+        // of opening a second connection.
+        $fetch = $this->run(['git', 'fetch', '--tags', 'origin', $name], timeout: 60);
 
         if (! $fetch['ok']) {
             return [...$blank, 'branch' => $name, 'error' => $fetch['error']];
@@ -151,6 +153,65 @@ class GitDeployer
     }
 
     /**
+     * Copy the freshly built assets into the directory the web server serves.
+     *
+     * On cPanel the repository lives outside the web root and public/ is served
+     * from public_html, so a pull updates public/build while the browser keeps
+     * loading whatever is in public_html/build. The page then renders new
+     * markup against an old bundle — components that no longer exist, or, when
+     * the previous bundle was empty, none at all.
+     *
+     * Only build/ is copied. index.php in the web root is rewritten during
+     * cPanel setup to point back at this directory, and uploads and the storage
+     * link live there too — overwriting any of them would break the site.
+     *
+     * @return array{ok: bool, output: string, error: string|null}
+     */
+    public function publishAssets(): array
+    {
+        $source = base_path('public/build');
+        $target = rtrim(public_path('build'), DIRECTORY_SEPARATOR);
+
+        if (! is_dir($source)) {
+            return [
+                'ok' => true,
+                'output' => 'No build directory in the repository; nothing to publish.',
+                'error' => null,
+            ];
+        }
+
+        // The usual local layout: the web root is the repository's own public
+        // directory, so the files are already where they need to be.
+        if (realpath($source) === realpath($target)) {
+            return [
+                'ok' => true,
+                'output' => 'Assets are served straight from the repository; nothing to copy.',
+                'error' => null,
+            ];
+        }
+
+        try {
+            File::ensureDirectoryExists($target);
+
+            if (! File::copyDirectory($source, $target)) {
+                return [
+                    'ok' => false,
+                    'output' => '',
+                    'error' => "Could not copy assets into {$target}. Check that it is writable by the web user.",
+                ];
+            }
+        } catch (\Throwable $e) {
+            return ['ok' => false, 'output' => '', 'error' => $e->getMessage()];
+        }
+
+        return [
+            'ok' => true,
+            'output' => 'Published '.count(File::files($source))." file(s) to {$target}",
+            'error' => null,
+        ];
+    }
+
+    /**
      * Rebuild what makes the site fast, and nothing else.
      *
      * Two commands are deliberately absent.
@@ -195,7 +256,9 @@ class GitDeployer
      */
     public function latestRelease(): ?string
     {
-        $result = $this->run(['git', 'ls-remote', '--tags', '--refs', 'origin'], timeout: 60);
+        // Local, so it costs no network round trip. status() fetches tags first,
+        // which is what keeps this current.
+        $result = $this->run(['git', 'tag', '--list'], timeout: 15);
 
         if (! $result['ok']) {
             return null;
@@ -204,7 +267,7 @@ class GitDeployer
         $versions = [];
 
         foreach (explode("\n", $result['output']) as $line) {
-            if (preg_match('#refs/tags/(v?\d+\.\d+\.\d+)$#', trim($line), $match) === 1) {
+            if (preg_match('/^(v?\d+\.\d+\.\d+)$/', trim($line), $match) === 1) {
                 $versions[] = ltrim($match[1], 'vV');
             }
         }
