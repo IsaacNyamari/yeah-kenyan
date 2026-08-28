@@ -15,6 +15,14 @@ class SubscriberFactory extends Factory
      */
     public function definition(): array
     {
-        return ['email' => fake()->unique()->safeEmail()];
+        return [
+            'email' => fake()->unique()->safeEmail(),
+            'name' => fake()->name(),
+        ];
+    }
+
+    public function unsubscribed(): static
+    {
+        return $this->state(['unsubscribed_at' => now()]);
     }
 }

@@ -34,8 +34,8 @@ enum UserRole: string
     {
         return match ($this) {
             self::Admin => 'Full access, including settings, roles, subscribers and newsletters.',
-            self::Moderator => 'Reviews submitted articles and approves or rejects them.',
-            self::Author => 'Writes articles and submits them for review.',
+            self::Moderator => 'Reviews submitted articles and nothing else. Cannot edit site content.',
+            self::Author => 'Writes articles and submits them for review. Sees only their own.',
         };
     }
 
@@ -58,8 +58,11 @@ enum UserRole: string
     {
         return match ($this) {
             self::Admin => Permission::cases(),
-            self::Moderator => [Permission::ModeratePosts, Permission::CreatePosts],
-            self::Author => [Permission::CreatePosts],
+            // Review only. A moderator judges other people's work, so giving
+            // them the content screens would let them edit the very articles
+            // they are meant to be checking.
+            self::Moderator => [Permission::ModeratePosts],
+            self::Author => [Permission::ManageNews],
         };
     }
 

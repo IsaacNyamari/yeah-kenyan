@@ -1,5 +1,7 @@
 <?php
 
+use App\Models\User;
+use App\Services\Impersonator;
 use Illuminate\Support\Facades\Route;
 
 Route::livewire('/', 'pages::home')->name('home');
@@ -10,35 +12,91 @@ Route::livewire('contact', 'pages::contact')->name('contact');
 Route::livewire('news', 'pages::news.index')->name('news.index');
 Route::livewire('news/{slug}', 'pages::news.show')->name('news.show');
 
+Route::livewire('newsletter/unsubscribe/{token}', 'pages::site.unsubscribe')->name('newsletter.unsubscribe');
+
+/*
+ * Every dashboard screen is gated on the permission for its own area, so an
+ * account only reaches what it has been granted. The sidebar hides the same
+ * entries, but the gate here is what actually enforces it.
+ */
 Route::middleware(['auth', 'verified'])->group(function () {
     Route::livewire('dashboard', 'pages::admin.dashboard')->name('dashboard');
 
-    Route::livewire('admin/posts', 'pages::admin.posts')->name('admin.posts');
-    Route::livewire('admin/gallery', 'pages::admin.gallery')->name('admin.gallery');
-    Route::livewire('admin/services', 'pages::admin.services')->name('admin.services');
-    Route::livewire('admin/classes', 'pages::admin.classes')->name('admin.classes');
-    Route::livewire('admin/testimonials', 'pages::admin.testimonials')->name('admin.testimonials');
-    Route::livewire('admin/messages', 'pages::admin.messages')->name('admin.messages');
-    Route::livewire('admin/contact', 'pages::admin.contact')->name('admin.contact');
+    Route::livewire('admin/posts', 'pages::admin.posts')
+        ->middleware('can:manage news')
+        ->name('admin.posts');
 
-    // The review queue: moderators and administrators.
     Route::livewire('admin/moderation', 'pages::admin.moderation')
-        ->middleware('can:moderate-content')
+        ->middleware('can:moderate posts')
         ->name('admin.moderation');
 
-    // Roles decide what everyone else may do, so administrators only.
+    Route::livewire('admin/gallery', 'pages::admin.gallery')
+        ->middleware('can:manage gallery')
+        ->name('admin.gallery');
+
+    Route::livewire('admin/services', 'pages::admin.services')
+        ->middleware('can:manage services')
+        ->name('admin.services');
+
+    Route::livewire('admin/classes', 'pages::admin.classes')
+        ->middleware('can:manage classes')
+        ->name('admin.classes');
+
+    Route::livewire('admin/testimonials', 'pages::admin.testimonials')
+        ->middleware('can:manage testimonials')
+        ->name('admin.testimonials');
+
+    Route::livewire('admin/messages', 'pages::admin.messages')
+        ->middleware('can:manage messages')
+        ->name('admin.messages');
+
+    Route::livewire('admin/contact', 'pages::admin.contact')
+        ->middleware('can:manage contact')
+        ->name('admin.contact');
+
+    Route::livewire('admin/subscribers', 'pages::admin.subscribers')
+        ->middleware('can:manage subscribers')
+        ->name('admin.subscribers');
+
+    Route::livewire('admin/newsletters', 'pages::admin.newsletters')
+        ->middleware('can:manage newsletters')
+        ->name('admin.newsletters');
+
+    Route::livewire('admin/newsletters/templates', 'pages::admin.newsletter-templates')
+        ->middleware('can:manage newsletters')
+        ->name('admin.newsletter-templates');
+
+    Route::livewire('admin/newsletters/{newsletter}/send', 'pages::admin.newsletter-send')
+        ->middleware('can:manage newsletters')
+        ->name('admin.newsletter-send');
+
     Route::livewire('admin/users', 'pages::admin.users')
-        ->middleware('admin')
+        ->middleware('can:manage roles')
         ->name('admin.users');
 
-    // Credentials live here, so administrators only.
+    /*
+     * Impersonation. Starting is gated on the roles permission; stopping is
+     * not, because the only session that can stop is one already holding an
+     * administrator's id, and refusing it would strand them.
+     */
+    Route::post('admin/users/{user}/impersonate', function (User $user, Impersonator $impersonator) {
+        $impersonator->start($user);
+
+        return redirect()->route('dashboard');
+    })->middleware('can:manage roles')->name('admin.impersonate');
+
+    Route::post('impersonate/stop', function (Impersonator $impersonator) {
+        return $impersonator->stop()
+            ? redirect()->route('admin.users')
+            : redirect()->route('dashboard');
+    })->name('impersonate.stop');
+
     Route::livewire('admin/settings', 'pages::admin.settings')
-        ->middleware('admin')
+        ->middleware('can:manage settings')
         ->name('admin.settings');
 
-    // Traffic data is administrator-only.
     Route::livewire('admin/analytics', 'pages::admin.analytics')
-        ->middleware('admin')
+        ->middleware('can:view analytics')
         ->name('admin.analytics');
 });
 

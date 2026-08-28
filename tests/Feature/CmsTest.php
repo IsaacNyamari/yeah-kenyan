@@ -12,7 +12,7 @@ use Illuminate\Support\Facades\Storage;
 use Livewire\Livewire;
 
 beforeEach(function () {
-    $this->actingAs(User::factory()->create());
+    $this->actingAs(User::factory()->admin()->create());
 });
 
 it('locks the whole cms behind authentication', function (string $route) {
@@ -23,19 +23,21 @@ it('locks the whole cms behind authentication', function (string $route) {
 
 it('shows headline counts on the dashboard', function () {
     Post::factory()->count(3)->create();
-    Post::factory()->draft()->create();
+    Post::factory()->awaitingReview()->create();
     GalleryItem::factory()->count(2)->create();
     Subscriber::factory()->count(5)->create();
+    Subscriber::factory()->unsubscribed()->create();
     ContactMessage::factory()->count(4)->create(['read_at' => null]);
 
     Livewire::test('pages::admin.dashboard')
         ->assertOk()
         ->assertSet('stats.posts', 4)
         ->assertSet('stats.published', 3)
-        ->assertSet('stats.drafts', 1)
         ->assertSet('stats.gallery', 2)
+        // Someone who has unsubscribed is not part of the audience.
         ->assertSet('stats.subscribers', 5)
-        ->assertSet('stats.unread', 4);
+        ->assertSet('stats.unread', 4)
+        ->assertSet('awaitingCount', 1);
 });
 
 it('buckets twelve months of activity for the chart', function () {

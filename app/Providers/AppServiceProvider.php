@@ -43,7 +43,7 @@ class AppServiceProvider extends ServiceProvider
          * stay exempt from the switch, so turning it off to pause submissions
          * never leaves the site with nobody able to publish.
          */
-        Gate::define('post-content', fn (User $user): bool => $user->can(Permission::CreatePosts->value)
+        Gate::define('post-content', fn (User $user): bool => $user->can(Permission::ManageNews->value)
             && (Setting::boolean('posting_enabled', true) || $user->isAdministrator()));
 
         Gate::define('moderate-content', fn (User $user): bool => $user->can(Permission::ModeratePosts->value));

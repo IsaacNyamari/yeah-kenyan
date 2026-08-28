@@ -6,6 +6,8 @@
 </head>
 
 <body class="min-h-screen bg-white dark:bg-zinc-800">
+
+    <x-impersonation-banner />
     <flux:sidebar sticky collapsible="mobile"
         class="border-e border-zinc-200 bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-900">
         <flux:sidebar.header>
@@ -21,74 +23,115 @@
                 </flux:sidebar.item>
             </flux:sidebar.group>
 
-            <flux:sidebar.group :heading="__('Content')" class="grid">
-                <flux:sidebar.item icon="newspaper" :href="route('admin.posts')"
-                    :current="request()->routeIs('admin.posts')" wire:navigate>
-                    {{ __('News') }}
-                </flux:sidebar.item>
-
-                @can('moderate-content')
-                    <flux:sidebar.item icon="document-check" :href="route('admin.moderation')"
-                        :current="request()->routeIs('admin.moderation')" wire:navigate
-                        :badge="\App\Models\Post::awaitingReview()->count() ?: null">
-                        {{ __('Moderation') }}
+            <flux:sidebar.group :heading="__('Newsroom')" class="grid">
+                @can('manage news')
+                    <flux:sidebar.item icon="newspaper" :href="route('admin.posts')"
+                        :current="request()->routeIs('admin.posts')" wire:navigate>
+                        {{ __('News') }}
                     </flux:sidebar.item>
                 @endcan
 
-                <flux:sidebar.item icon="briefcase" :href="route('admin.services')"
-                    :current="request()->routeIs('admin.services')" wire:navigate>
-                    {{ __('Services') }}
-                </flux:sidebar.item>
+                @can('moderate posts')
+                    <flux:sidebar.item icon="document-check" :href="route('admin.moderation')"
+                        :current="request()->routeIs('admin.moderation')" wire:navigate>
+                        {{ __('Moderation') }}
 
-                <flux:sidebar.item icon="academic-cap" :href="route('admin.classes')"
-                    :current="request()->routeIs('admin.classes')" wire:navigate>
-                    {{ __('Online Classes') }}
-                </flux:sidebar.item>
-
-                <flux:sidebar.item icon="photo" :href="route('admin.gallery')"
-                    :current="request()->routeIs('admin.gallery')" wire:navigate>
-                    {{ __('Gallery') }}
-                </flux:sidebar.item>
-
-                <flux:sidebar.item icon="chat-bubble-left-right" :href="route('admin.testimonials')"
-                    :current="request()->routeIs('admin.testimonials')" wire:navigate>
-                    {{ __('Testimonials') }}
-                </flux:sidebar.item>
+                        @if ($awaiting = \App\Models\Post::awaitingReview()->count())
+                            <flux:badge size="sm" color="amber" class="ms-auto">{{ $awaiting }}</flux:badge>
+                        @endif
+                    </flux:sidebar.item>
+                @endcan
             </flux:sidebar.group>
 
-            <flux:sidebar.group :heading="__('Engagement')" class="grid">
-                <flux:sidebar.item icon="inbox" :href="route('admin.messages')"
-                    :current="request()->routeIs('admin.messages')" wire:navigate>
-                    {{ __('Messages') }}
+            @canany(['manage services', 'manage classes', 'manage gallery', 'manage testimonials'])
+                <flux:sidebar.group :heading="__('Content')" class="grid">
+                    @can('manage services')
+                        <flux:sidebar.item icon="briefcase" :href="route('admin.services')"
+                            :current="request()->routeIs('admin.services')" wire:navigate>
+                            {{ __('Services') }}
+                        </flux:sidebar.item>
+                    @endcan
 
-                    @if ($unread = \App\Models\ContactMessage::whereNull('read_at')->count())
-                        <flux:badge size="sm" color="red" class="ms-auto">{{ $unread }}</flux:badge>
-                    @endif
-                </flux:sidebar.item>
+                    @can('manage classes')
+                        <flux:sidebar.item icon="academic-cap" :href="route('admin.classes')"
+                            :current="request()->routeIs('admin.classes')" wire:navigate>
+                            {{ __('Online Classes') }}
+                        </flux:sidebar.item>
+                    @endcan
 
-                <flux:sidebar.item icon="cog-6-tooth" :href="route('admin.contact')"
-                    :current="request()->routeIs('admin.contact')" wire:navigate>
-                    {{ __('Contact Settings') }}
-                </flux:sidebar.item>
-            </flux:sidebar.group>
+                    @can('manage gallery')
+                        <flux:sidebar.item icon="photo" :href="route('admin.gallery')"
+                            :current="request()->routeIs('admin.gallery')" wire:navigate>
+                            {{ __('Gallery') }}
+                        </flux:sidebar.item>
+                    @endcan
+
+                    @can('manage testimonials')
+                        <flux:sidebar.item icon="chat-bubble-left-right" :href="route('admin.testimonials')"
+                            :current="request()->routeIs('admin.testimonials')" wire:navigate>
+                            {{ __('Testimonials') }}
+                        </flux:sidebar.item>
+                    @endcan
+                </flux:sidebar.group>
+            @endcanany
+
+            @canany(['manage messages', 'manage contact', 'manage subscribers', 'manage newsletters'])
+                <flux:sidebar.group :heading="__('Audience')" class="grid">
+                    @can('manage messages')
+                        <flux:sidebar.item icon="inbox" :href="route('admin.messages')"
+                            :current="request()->routeIs('admin.messages')" wire:navigate>
+                            {{ __('Messages') }}
+
+                            @if ($unread = \App\Models\ContactMessage::whereNull('read_at')->count())
+                                <flux:badge size="sm" color="red" class="ms-auto">{{ $unread }}</flux:badge>
+                            @endif
+                        </flux:sidebar.item>
+                    @endcan
+
+                    @can('manage newsletters')
+                        <flux:sidebar.item icon="envelope-open" :href="route('admin.newsletters')"
+                            :current="request()->routeIs('admin.newsletters') || request()->routeIs('admin.newsletter-*')" wire:navigate>
+                            {{ __('Newsletters') }}
+                        </flux:sidebar.item>
+                    @endcan
+
+                    @can('manage subscribers')
+                        <flux:sidebar.item icon="user-group" :href="route('admin.subscribers')"
+                            :current="request()->routeIs('admin.subscribers')" wire:navigate>
+                            {{ __('Subscribers') }}
+                        </flux:sidebar.item>
+                    @endcan
+
+                    @can('manage contact')
+                        <flux:sidebar.item icon="cog-6-tooth" :href="route('admin.contact')"
+                            :current="request()->routeIs('admin.contact')" wire:navigate>
+                            {{ __('Contact Settings') }}
+                        </flux:sidebar.item>
+                    @endcan
+                </flux:sidebar.group>
+            @endcanany
 
             <flux:sidebar.group :heading="__('Site')" class="grid">
-                @if (auth()->user()?->isAdministrator())
+                @can('view analytics')
                     <flux:sidebar.item icon="chart-bar" :href="route('admin.analytics')"
                         :current="request()->routeIs('admin.analytics')" wire:navigate>
                         {{ __('Analytics') }}
                     </flux:sidebar.item>
+                @endcan
 
+                @can('manage roles')
                     <flux:sidebar.item icon="users" :href="route('admin.users')"
                         :current="request()->routeIs('admin.users')" wire:navigate>
                         {{ __('User Roles') }}
                     </flux:sidebar.item>
+                @endcan
 
+                @can('manage settings')
                     <flux:sidebar.item icon="wrench-screwdriver" :href="route('admin.settings')"
                         :current="request()->routeIs('admin.settings')" wire:navigate>
                         {{ __('Settings') }}
                     </flux:sidebar.item>
-                @endif
+                @endcan
 
                 <flux:sidebar.item icon="globe-alt" :href="route('home')" target="_blank">
                     {{ __('View Website') }}

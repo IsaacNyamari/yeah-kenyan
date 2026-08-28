@@ -98,7 +98,10 @@ it('gives each role the abilities it should have', function () {
         ->and($admin->can(Permission::ModeratePosts->value))->toBeTrue()
         ->and($moderator->can(Permission::ModeratePosts->value))->toBeTrue()
         ->and($moderator->can(Permission::ManageRoles->value))->toBeFalse()
-        ->and($author->can(Permission::CreatePosts->value))->toBeTrue()
+        // A moderator judges other people's articles and edits nothing.
+        ->and($moderator->can(Permission::ManageNews->value))->toBeFalse()
+        ->and($moderator->can(Permission::ManageGallery->value))->toBeFalse()
+        ->and($author->can(Permission::ManageNews->value))->toBeTrue()
         ->and($author->can(Permission::ModeratePosts->value))->toBeFalse();
 });
 

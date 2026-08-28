@@ -33,6 +33,8 @@
 </head>
 <body class="min-h-screen bg-white font-sans text-zinc-800 antialiased dark:bg-zinc-950 dark:text-zinc-200">
 
+    <x-impersonation-banner />
+
     <x-site.header />
 
     <main>

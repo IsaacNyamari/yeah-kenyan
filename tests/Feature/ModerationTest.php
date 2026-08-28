@@ -46,8 +46,8 @@ it('sends an author article to the queue instead of the site', function () {
         ->and(Post::published()->count())->toBe(0);
 });
 
-it('publishes straight away for a moderator', function () {
-    $this->actingAs(User::factory()->moderator()->create());
+it('publishes straight away for someone who can approve', function () {
+    $this->actingAs(User::factory()->admin()->create());
     $category = Category::factory()->create();
 
     Livewire::test('pages::admin.posts')

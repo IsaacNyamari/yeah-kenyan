@@ -35,7 +35,7 @@ it('surfaces the reason on a 403 when one was given', function () {
 
     $this->get(route('admin.analytics'))
         ->assertForbidden()
-        ->assertSee('This area is restricted to administrators.');
+        ->assertSee('This action is unauthorized.');
 });
 
 it('falls back to generic copy when a 403 carries no message', function () {

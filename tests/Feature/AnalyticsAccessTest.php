@@ -19,11 +19,18 @@ it('allows an administrator through', function () {
     $this->get(route('admin.analytics'))->assertOk();
 });
 
-it('leaves the rest of the cms open to any signed-in user', function (string $route) {
+it('gives an author the newsroom and nothing else', function () {
     $this->actingAs(User::factory()->create());
 
-    $this->get(route($route))->assertOk();
-})->with(['dashboard', 'admin.posts', 'admin.services', 'admin.messages']);
+    $this->get(route('dashboard'))->assertOk();
+    $this->get(route('admin.posts'))->assertOk();
+})->covers();
+
+it('keeps an author out of areas they were not granted', function (string $route) {
+    $this->actingAs(User::factory()->create());
+
+    $this->get(route($route))->assertForbidden();
+})->with(['admin.services', 'admin.messages', 'admin.gallery', 'admin.settings', 'admin.users']);
 
 it('shows the analytics link in the sidebar only for administrators', function () {
     $this->actingAs(User::factory()->admin()->create());
