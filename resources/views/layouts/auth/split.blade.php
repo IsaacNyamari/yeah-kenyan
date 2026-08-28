@@ -45,6 +45,8 @@
             </flux:toast.group>
         @endpersist
 
+        <x-page-loader />
+
         @fluxScripts
     </body>
 </html>

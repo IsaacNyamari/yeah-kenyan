@@ -47,6 +47,8 @@
 
     <x-site.tawk-widget />
 
+    <x-page-loader />
+
     @fluxScripts
 </body>
 </html>

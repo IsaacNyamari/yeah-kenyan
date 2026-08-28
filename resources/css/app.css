@@ -87,3 +87,79 @@ select:focus[data-flux-control] {
 /* \[:where(&)\]:size-4 {
     @apply size-4;
 } */
+
+/* ---------------------------------------------------------------------------
+   Brand loader
+
+   The overlay ships visible so it covers the first paint; the script in
+   components/page-loader.blade.php dismisses it once the page is ready. Both
+   elements sit inside @persist, so wire:navigate keeps them across body swaps
+   instead of re-creating them and restarting the animation.
+--------------------------------------------------------------------------- */
+
+#page-preloader {
+    position: fixed;
+    inset: 0;
+    z-index: 200;
+    display: grid;
+    place-items: center;
+    background-color: #fff;
+    transition: opacity 350ms ease, visibility 350ms ease;
+}
+
+.dark #page-preloader {
+    background-color: var(--color-zinc-950);
+}
+
+/* The fade is decoration. A throttled tab can leave a transition parked at its
+   start, so the overlay must stop intercepting clicks the moment it is
+   dismissed, and is-gone guarantees it leaves the page even if the transition
+   never runs at all. */
+#page-preloader.is-done {
+    opacity: 0;
+    visibility: hidden;
+    pointer-events: none;
+}
+
+#page-preloader.is-gone {
+    display: none;
+}
+
+#livewire-activity {
+    position: fixed;
+    inset-inline-end: 1.25rem;
+    inset-block-end: 1.25rem;
+    z-index: 190;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.45rem 0.9rem;
+    border-radius: 9999px;
+    font-size: 0.8125rem;
+    font-weight: 500;
+    color: var(--color-zinc-700);
+    background-color: rgb(255 255 255 / 0.95);
+    box-shadow: 0 10px 30px rgb(0 0 0 / 0.15);
+    opacity: 0;
+    visibility: hidden;
+    pointer-events: none;
+    transition: opacity 200ms ease, visibility 200ms ease;
+}
+
+.dark #livewire-activity {
+    color: var(--color-zinc-200);
+    background-color: rgb(24 24 27 / 0.95);
+    box-shadow: 0 10px 30px rgb(0 0 0 / 0.5);
+}
+
+#livewire-activity.is-active {
+    opacity: 1;
+    visibility: visible;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    #page-preloader,
+    #livewire-activity {
+        transition-duration: 1ms;
+    }
+}
