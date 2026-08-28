@@ -1,6 +1,7 @@
 <?php
 
 use App\Concerns\ConfirmsActions;
+use App\Concerns\PicksGalleryImages;
 use App\Models\Category;
 use App\Models\Post;
 use App\Services\ArticleHtml;
@@ -20,6 +21,7 @@ use Livewire\WithPagination;
 
 new #[Layout('layouts.app')] #[Title('Manage News')] class extends Component {
     use ConfirmsActions;
+    use PicksGalleryImages;
     use WithFileUploads;
     use WithPagination;
 
@@ -73,7 +75,7 @@ new #[Layout('layouts.app')] #[Title('Manage News')] class extends Component {
             'excerpt' => ['nullable', 'string', 'max:500'],
             'body' => ['required', 'string'],
             // 8 MB ceiling: phone photos routinely exceed the PHP default.
-            'photo' => [$this->editingId ? 'nullable' : 'required', 'image', 'max:8192'],
+            'photo' => [$this->editingId || filled($this->galleryImage) ? 'nullable' : 'required', 'image', 'max:8192'],
         ];
     }
 
@@ -92,8 +94,12 @@ new #[Layout('layouts.app')] #[Title('Manage News')] class extends Component {
                 return;
             }
 
-            $optimizer->delete($post->exists && ! str_starts_with((string) $post->image, 'uploads/') ? $post->image : null);
+            $this->detachImage($post->image, $optimizer, $post);
             $post->image = $image;
+        } elseif (filled($this->galleryImage)) {
+            // Reused as-is: the file is shared with the gallery, not copied.
+            $this->detachImage($post->image, $optimizer, $post);
+            $post->image = $this->galleryImage;
         }
 
         $post->fill([
@@ -135,6 +141,8 @@ new #[Layout('layouts.app')] #[Title('Manage News')] class extends Component {
         $this->is_trending = $post->is_trending;
         $this->publish = $post->published_at !== null;
         $this->photo = null;
+        $this->galleryImage = null;
+        $this->currentImage = $post->image;
     }
 
     /**
@@ -151,9 +159,7 @@ new #[Layout('layouts.app')] #[Title('Manage News')] class extends Component {
 
         $post = Post::findOrFail($id);
 
-        if (! str_starts_with((string) $post->image, 'uploads/')) {
-            $optimizer->delete($post->image);
-        }
+        $this->detachImage($post->image, $optimizer, $post);
 
         $post->delete();
 
@@ -162,7 +168,7 @@ new #[Layout('layouts.app')] #[Title('Manage News')] class extends Component {
 
     public function resetForm(): void
     {
-        $this->reset('editingId', 'title', 'excerpt', 'body', 'photo', 'is_featured', 'is_trending');
+        $this->reset('editingId', 'title', 'excerpt', 'body', 'photo', 'galleryImage', 'currentImage', 'is_featured', 'is_trending');
         $this->author = 'Yeah Kenyan';
         $this->publish = true;
         $this->resetValidation();
@@ -200,21 +206,16 @@ new #[Layout('layouts.app')] #[Title('Manage News')] class extends Component {
 
                     <flux:textarea wire:model="body" label="Body" rows="10" required />
 
-                    <div>
-                        <flux:input type="file" wire:model="photo" label="Cover image" accept="image/*" />
-                        <flux:text size="sm" class="mt-1">
-                            Resized to 1600px and converted to WebP automatically. Max 8&nbsp;MB.
-                        </flux:text>
-
-                        <div wire:loading wire:target="photo" class="mt-2 text-sm text-zinc-500">
-                            Uploading image...
-                        </div>
-
-                        @if ($photo && $photo->isPreviewable())
-                            <img src="{{ $photo->temporaryUrl() }}" alt="Preview"
-                                 class="mt-3 h-40 w-full rounded-lg object-cover">
-                        @endif
-                    </div>
+                    <x-admin.image-field
+                        label="Cover image"
+                        description="Resized to 1600px and converted to WebP. Max 8 MB."
+                        :photo="$photo"
+                        :gallery-image="$galleryImage"
+                        :current-url="\App\Models\GalleryItem::urlFor($currentImage)"
+                        :picking="$pickingFromGallery"
+                        :choices="$this->galleryChoices"
+                        :collections="$this->galleryCollections"
+                        :collection="$galleryCollection" />
 
                     <div class="space-y-2">
                         <flux:checkbox wire:model="is_featured" label="Feature on homepage" />

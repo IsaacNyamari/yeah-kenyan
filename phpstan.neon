@@ -24,3 +24,4 @@ parameters:
             paths:
                 - app/Concerns/ConfirmsActions.php
                 - app/Concerns/ManagesPageContent.php
+                - app/Concerns/PicksGalleryImages.php

@@ -25,12 +25,21 @@ trait ResolvesImageUrl
 
     public function getImageUrlAttribute(): ?string
     {
-        if (blank($this->image)) {
+        return self::urlFor($this->image);
+    }
+
+    /**
+     * Resolve a stored path to a URL without needing a model instance —
+     * used when an editor has picked a gallery path but not yet saved it.
+     */
+    public static function urlFor(?string $path): ?string
+    {
+        if (blank($path)) {
             return null;
         }
 
-        return Str::startsWith($this->image, self::LEGACY_PUBLIC_DIRECTORIES)
-            ? asset($this->image)
-            : Storage::disk('public')->url($this->image);
+        return Str::startsWith($path, self::LEGACY_PUBLIC_DIRECTORIES)
+            ? asset($path)
+            : Storage::disk('public')->url($path);
     }
 }

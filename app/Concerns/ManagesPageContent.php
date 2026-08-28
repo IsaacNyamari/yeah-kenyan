@@ -20,6 +20,7 @@ use Livewire\Features\SupportFileUploads\TemporaryUploadedFile;
 trait ManagesPageContent
 {
     use ConfirmsActions;
+    use PicksGalleryImages;
 
     public ?int $editingId = null;
 
@@ -154,11 +155,12 @@ trait ManagesPageContent
                 return;
             }
 
-            if ($page->exists && ! str_starts_with((string) $page->image, 'images/')) {
-                $optimizer->delete($page->image);
-            }
-
+            $this->detachImage($page->image, $optimizer, $page);
             $page->image = $image;
+        } elseif (filled($this->galleryImage)) {
+            // Reused as-is: the file is shared with the gallery, not copied.
+            $this->detachImage($page->image, $optimizer, $page);
+            $page->image = $this->galleryImage;
         }
 
         $page->fill([
@@ -195,6 +197,8 @@ trait ManagesPageContent
         $this->intro = $page->intro;
         $this->is_published = $page->is_published;
         $this->photo = null;
+        $this->galleryImage = null;
+        $this->currentImage = $page->image;
         $this->sections = $this->normaliseSections($page->sections ?? []);
 
         $this->resetValidation();
@@ -206,9 +210,7 @@ trait ManagesPageContent
 
         $page = Page::findOrFail($id);
 
-        if (! str_starts_with((string) $page->image, 'images/')) {
-            $optimizer->delete($page->image);
-        }
+        $this->detachImage($page->image, $optimizer, $page);
 
         $page->delete();
 
@@ -242,7 +244,7 @@ trait ManagesPageContent
 
     public function resetForm(): void
     {
-        $this->reset('editingId', 'slug', 'nav', 'title', 'heading', 'intro', 'photo', 'sections');
+        $this->reset('editingId', 'slug', 'nav', 'title', 'heading', 'intro', 'photo', 'galleryImage', 'currentImage', 'sections');
         $this->cta = $this->pageType() === Page::TYPE_CLASS ? 'Enroll Now' : 'Get Service';
         $this->is_published = true;
         $this->resetValidation();

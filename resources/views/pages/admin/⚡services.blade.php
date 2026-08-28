@@ -30,5 +30,8 @@ new #[Layout('layouts.app')] #[Title('Services')] class extends Component {
 
     <x-admin.confirm-modal :pending="$pendingAction" />
 
-    <x-admin.page-editor :pages="$this->pages" :editing-id="$editingId" :sections="$sections" :slug="$slug" label="Service" :photo="$photo" />
+    <x-admin.page-editor :pages="$this->pages" :editing-id="$editingId" :sections="$sections" :slug="$slug" label="Service" :photo="$photo"
+        :gallery-image="$galleryImage" :current-image="$currentImage"
+        :picking-from-gallery="$pickingFromGallery" :choices="$this->galleryChoices"
+        :collections="$this->galleryCollections" :gallery-collection="$galleryCollection" />
 </div>

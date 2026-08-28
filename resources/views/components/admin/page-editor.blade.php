@@ -5,6 +5,12 @@
     'editingId' => null,
     'label' => 'Page',
     'photo' => null,
+    'galleryImage' => null,
+    'currentImage' => null,
+    'pickingFromGallery' => false,
+    'choices' => [],
+    'collections' => [],
+    'galleryCollection' => '',
 ])
 
 <div class="grid gap-8 xl:grid-cols-5">
@@ -28,18 +34,16 @@
                 <flux:textarea wire:model="intro" label="Intro paragraph" rows="5" required />
                 <flux:input wire:model="cta" label="Button label" required />
 
-                <div>
-                    <flux:input type="file" wire:model="photo" label="Hero image" accept="image/*" />
-                    <flux:text size="sm" class="mt-1">
-                        Resized to 1600px and converted to WebP on upload.
-                    </flux:text>
-
-                    <div wire:loading wire:target="photo" class="mt-2 text-sm text-zinc-500">Uploading…</div>
-
-                    @if ($photo && $photo->isPreviewable())
-                        <img src="{{ $photo->temporaryUrl() }}" alt="Preview" class="mt-3 h-36 w-full rounded-lg object-cover">
-                    @endif
-                </div>
+                <x-admin.image-field
+                    label="Hero image"
+                    description="Resized to 1600px and converted to WebP on upload."
+                    :photo="$photo"
+                    :gallery-image="$galleryImage"
+                    :current-url="\App\Models\GalleryItem::urlFor($currentImage)"
+                    :picking="$pickingFromGallery"
+                    :choices="$choices"
+                    :collections="$collections"
+                    :collection="$galleryCollection" />
 
                 <flux:checkbox wire:model="is_published" label="Published" />
 

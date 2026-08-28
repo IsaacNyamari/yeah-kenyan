@@ -94,7 +94,9 @@ new #[Layout('layouts.app')] #[Title('Manage Gallery')] class extends Component 
 
         $item = GalleryItem::findOrFail($id);
 
-        if (! str_starts_with($item->image, 'uploads/')) {
+        // Editors can attach a gallery image to a post, page or testimonial, so
+        // the file may outlive this row. Removing it regardless would break them.
+        if (! str_starts_with($item->image, 'uploads/') && ! $item->isReferencedElsewhere()) {
             $optimizer->delete($item->image);
         }
 

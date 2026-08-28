@@ -1,6 +1,7 @@
 <?php
 
 use App\Concerns\ConfirmsActions;
+use App\Concerns\PicksGalleryImages;
 use App\Models\Testimonial;
 use App\Exceptions\ImageProcessingException;
 use App\Services\ImageOptimizer;
@@ -15,6 +16,7 @@ use Livewire\WithFileUploads;
 
 new #[Layout('layouts.app')] #[Title('Testimonials')] class extends Component {
     use ConfirmsActions;
+    use PicksGalleryImages;
     use WithFileUploads;
 
     public ?int $editingId = null;
@@ -73,8 +75,12 @@ new #[Layout('layouts.app')] #[Title('Testimonials')] class extends Component {
                 return;
             }
 
-            $optimizer->delete($testimonial->image);
+            $this->detachImage($testimonial->image, $optimizer, $testimonial);
             $testimonial->image = $image;
+        } elseif (filled($this->galleryImage)) {
+            // Reused as-is: the file is shared with the gallery, not copied.
+            $this->detachImage($testimonial->image, $optimizer, $testimonial);
+            $testimonial->image = $this->galleryImage;
         }
 
         $testimonial->fill([
@@ -101,6 +107,8 @@ new #[Layout('layouts.app')] #[Title('Testimonials')] class extends Component {
         $this->role = (string) $testimonial->role;
         $this->quote = $testimonial->quote;
         $this->photo = null;
+        $this->galleryImage = null;
+        $this->currentImage = $testimonial->image;
 
         $this->resetValidation();
     }
@@ -109,7 +117,7 @@ new #[Layout('layouts.app')] #[Title('Testimonials')] class extends Component {
     {
         $testimonial = Testimonial::findOrFail($id);
 
-        app(ImageOptimizer::class)->delete($testimonial->image);
+        $this->detachImage($testimonial->image, app(ImageOptimizer::class), $testimonial);
 
         $testimonial->delete();
 
@@ -132,7 +140,7 @@ new #[Layout('layouts.app')] #[Title('Testimonials')] class extends Component {
 
     public function resetForm(): void
     {
-        $this->reset('editingId', 'client', 'role', 'quote', 'photo');
+        $this->reset('editingId', 'client', 'role', 'quote', 'photo', 'galleryImage', 'currentImage');
         $this->resetValidation();
     }
 
@@ -177,17 +185,16 @@ new #[Layout('layouts.app')] #[Title('Testimonials')] class extends Component {
                                 description="Shown under the name" />
                     <flux:textarea wire:model="quote" label="Quote" rows="5" required />
 
-                    <div>
-                        <flux:input type="file" wire:model="photo" label="Photo" accept="image/*" />
-                        <flux:text size="sm" class="mt-1">Shown as a circular portrait. Optimized on upload.</flux:text>
-
-                        <div wire:loading wire:target="photo" class="mt-2 text-sm text-zinc-500">Uploading…</div>
-
-                        @if ($photo && $photo->isPreviewable())
-                            <img src="{{ $photo->temporaryUrl() }}" alt="Preview"
-                                 class="mt-3 size-24 rounded-full object-cover">
-                        @endif
-                    </div>
+                    <x-admin.image-field
+                        label="Photo"
+                        description="Shown as a circular portrait. Optimized on upload."
+                        :photo="$photo"
+                        :gallery-image="$galleryImage"
+                        :current-url="\App\Models\GalleryItem::urlFor($currentImage)"
+                        :picking="$pickingFromGallery"
+                        :choices="$this->galleryChoices"
+                        :collections="$this->galleryCollections"
+                        :collection="$galleryCollection" />
 
                     <div class="flex gap-3">
                         <flux:button type="submit" variant="primary">
